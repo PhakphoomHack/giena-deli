@@ -91,7 +91,7 @@ class Board extends Component {
         <div style="display:flex;align-items:center;gap:16px">
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right">
             <span class="label" style="font-size:clamp(12px,1vw,18px);color:#E8D49A">Scan to order</span>
-            <span style="font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.75)">and play Stack It</span>
+            <span style="font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.75)">and play Sandwich Match</span>
           </div>
           <img src="qr/guest.svg" alt="QR code to order" onError=${(e) => { e.target.style.display = 'none'; }} style="width:clamp(90px,8vw,150px);height:auto;background:#FFFFFF;padding:8px" />
         </div>
@@ -99,14 +99,14 @@ class Board extends Component {
       ${offline && html`<div style="margin:0 3vw 12px;padding:8px 14px;background:rgba(194,65,107,.3);font-size:16px">Reconnecting…</div>`}
       <div class="grid" style="flex:1">
         <section class="panel">
-          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Stack It</span>
+          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Sandwich Match</span>
           <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">Top Chef</h2>
-          ${scores.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">No scores yet. Who will stack the tallest sandwich?</p>`}
+          ${scores.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">No scores yet. Who will be the first Top Chef?</p>`}
           <div>${scores.map((r, i) => html`<div key=${r.name + r.layers} class=${'row ' + (i === 0 ? 'newrow' : '')}>
             <span class="serif" style="width:2ch;font-size:clamp(22px,2vw,38px);color:${i < 3 ? '#E8D49A' : 'rgba(246,241,231,.5)'}">${i + 1}</span>
             <span class="serif" style="flex:1;min-width:0;font-size:clamp(20px,1.7vw,32px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i === 0 ? '♛ ' : ''}${r.name}</span>
-            <span class="serif" style="font-size:clamp(22px,2vw,38px);color:#E8D49A">${r.layers}</span>
-            <span style="font-size:clamp(12px,.9vw,16px);color:rgba(246,241,231,.6)">layers</span>
+            <span class="serif" style="font-size:clamp(22px,2vw,38px);color:#E8D49A">${Number(r.layers).toLocaleString('en')}</span>
+            <span style="font-size:clamp(12px,.9vw,16px);color:rgba(246,241,231,.6)">pts</span>
           </div>`)}</div>
         </section>
         <section class="panel">
