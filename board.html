@@ -91,7 +91,8 @@ class Board extends Component {
         <div style="display:flex;align-items:center;gap:16px">
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right">
             <span class="label" style="font-size:clamp(12px,1vw,18px);color:#E8D49A">Scan to order</span>
-            <span style="font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.75)">and play Sandwich Match</span>
+            <span style="font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.85);font-family:Sarabun,sans-serif">สแกนสั่งได้เลย · Scan &amp; bestellen</span>
+            <span style="font-size:clamp(13px,1vw,18px);color:rgba(246,241,231,.65)">giena-deli.vercel.app</span>
           </div>
           <img src="qr/guest.svg" alt="QR code to order" onError=${(e) => { e.target.style.display = 'none'; }} style="width:clamp(90px,8vw,150px);height:auto;background:#FFFFFF;padding:8px" />
         </div>
@@ -126,7 +127,7 @@ class Board extends Component {
         <section class="panel">
           <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Wish wall</span>
           <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">For Giena, with love</h2>
-          ${wishes.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">Birthday wishes will appear here.</p>`}
+          ${wishes.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">Birthday wishes will pop up here.</p>`}
           <div style="display:flex;flex-direction:column;gap:14px">${shown.map((w, i) => html`<div key=${pg + '-' + i + w.created_at} class="wish" style="animation-delay:${i * 0.12}s;border-left:3px solid ${COLS[i % 4]};padding:6px 0 6px 18px">
             <p class="serif" style="margin:0;font-style:italic;font-size:clamp(20px,1.7vw,32px);line-height:1.35;word-break:break-word">${w.message}</p>
             ${w.name && html`<span class="label" style="display:block;margin-top:8px;font-size:clamp(11px,.85vw,15px);color:rgba(246,241,231,.65)">${w.name}</span>`}

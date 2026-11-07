@@ -11,6 +11,7 @@ const LINE = 'rgba(27,34,56,.16)';
 const ORDER_KEY = 'giena-order';
 const BEST_KEY = 'giena-match-best';
 const MOVES = 25;
+const WISH_KEY = 'giena-wish';
 const PREF_KEY = 'giena-prefs';
 
 const FILLS = [
@@ -36,7 +37,8 @@ class App extends Component {
   constructor() {
     super();
     const prefs = store(PREF_KEY) || {};
-    this.state = this.fresh({ lang: prefs.lang || this.guessLang(), big: !!prefs.big, sound: prefs.sound !== false });
+    const wk = store(WISH_KEY);
+    this.state = this.fresh({ lang: prefs.lang || this.guessLang(), big: !!prefs.big, sound: prefs.sound !== false, wishSent: !!(wk && Date.now() - wk.at < 12 * 3600 * 1000), name: (wk && wk.name) || '' });
     this.timers = [];
     this.dragging = false;
     this.dragX = 0;
@@ -55,7 +57,7 @@ class App extends Component {
   fresh(k) {
     return {
       screen: 'home', toasted: true, toast: 1, fill: {}, portion: {}, sauces: {}, saucy: 1, pickle: false,
-      name: '', note: '', status: 0, drag: 0, dragging: false, wish: '', wishSent: false, wishBusy: false,
+      name: '', note: '', status: 0, drag: 0, dragging: false, wish: '', wishSent: !!k.wishSent, wishBusy: false,
       stars: 0, tags: {}, comment: '', rateBusy: false, game: null, gameFrom: 'home', readySeen: false,
       confettiN: k.confettiN || 0, orderId: null, sending: false, error: '', scoreName: k.name || '', scoreSent: false, scoreBusy: false,
       notice: false, music: !!k.music, lang: k.lang || 'en', big: !!k.big, sound: k.sound === undefined ? true : k.sound
@@ -198,7 +200,8 @@ class App extends Component {
         p_side: sum.side, p_note: s.note.trim(), p_details: this.snapshot()
       });
       store(ORDER_KEY, { id, at: Date.now(), snap: this.snapshot(), status: 0 });
-      this.setState({ orderId: id, screen: 'wait', status: 0, drag: 0, sending: false, readySeen: false, scoreName: s.name.trim() }, () => this.enterWait());
+      const next = s.wishSent ? 'wait' : 'wish';
+      this.setState({ orderId: id, screen: next, status: 0, drag: 0, sending: false, readySeen: false, scoreName: s.name.trim(), error: '' }, () => (next === 'wait' ? this.enterWait() : this.startPolling()));
     } catch (e) {
       this.setState({ sending: false, error: DICT[s.lang].sendError });
     }
@@ -236,17 +239,26 @@ class App extends Component {
     store(ORDER_KEY, null);
     const s = this.state;
     if (s.screen === 'game') { this.setState({ orderId: null, status: 0, notice: true }); return; }
-    this.setState({ ...this.fresh({ lang: s.lang, big: s.big, sound: s.sound, music: s.music, confettiN: s.confettiN, name: s.scoreName }), notice: true });
+    this.setState({ ...this.fresh({ lang: s.lang, big: s.big, sound: s.sound, music: s.music, confettiN: s.confettiN, name: s.scoreName, wishSent: s.wishSent }), notice: true });
   }
   async sendWish() {
     const s = this.state;
-    if (!s.wish.trim() || s.wishBusy) return;
-    this.setState({ wishBusy: true });
+    const who = s.name.trim() || s.scoreName.trim();
+    if (!s.wish.trim() || s.wishBusy || (!s.orderId && !who)) return;
+    this.setState({ wishBusy: true, error: '' });
     try {
-      await rpc('add_wish', { p_name: s.name.trim() || s.scoreName.trim(), p_message: s.wish.trim() });
+      await rpc('add_wish', { p_name: who, p_message: s.wish.trim() });
+      store(WISH_KEY, { at: Date.now(), name: who });
       this.play('hb');
-      this.setState({ wishSent: true, wishBusy: false });
+      const patch = { wishSent: true, wishBusy: false, wish: '', scoreName: s.scoreName || who, confettiN: s.confettiN + 1 };
+      if (s.orderId) this.setState({ ...patch, screen: 'wait' }, () => this.enterWait());
+      else this.setState(patch, () => this.startGame());
     } catch (e) { this.setState({ wishBusy: false, error: DICT[s.lang].sendError }); }
+  }
+  openGame() {
+    if (this.state.wishSent) { this.startGame(); return; }
+    this.play('tap');
+    this.setState({ screen: 'wish', error: '' });
   }
   async sendRating() {
     const s = this.state;
@@ -263,7 +275,7 @@ class App extends Component {
     this.clearTimers(); clearInterval(this.poll);
     store(ORDER_KEY, null);
     const s = this.state;
-    this.setState(this.fresh({ lang: s.lang, big: s.big, sound: s.sound, music: s.music, confettiN: s.confettiN, name: s.scoreName }));
+    this.setState(this.fresh({ lang: s.lang, big: s.big, sound: s.sound, music: s.music, confettiN: s.confettiN, name: s.scoreName, wishSent: s.wishSent }));
   }
 
   // ---------- 3D sandwich ----------
@@ -327,7 +339,8 @@ class App extends Component {
     this.play('tap');
     const s = this.state;
     this.clearHint();
-    this.setState({ screen: 'game', gameFrom: s.screen === 'game' ? s.gameFrom : s.screen, game: this.newGame(), scoreSent: false });
+    const from = s.screen === 'game' ? s.gameFrom : (s.screen === 'wish' ? (s.orderId ? 'wait' : 'home') : s.screen);
+    this.setState({ screen: 'game', gameFrom: from, game: this.newGame(), scoreSent: false });
   }
   beginPlay() {
     this.play('tap');
@@ -571,12 +584,14 @@ class App extends Component {
     const wt = L.waitT[s.status];
     const needName = s.screen === 'review' && nm === '';
     const needStar = s.screen === 'rate' && s.stars === 0;
-    const busy = s.sending || s.rateBusy;
+    const needWishName = s.screen === 'wish' && !s.orderId && !s.scoreName.trim();
+    const needWish = s.screen === 'wish' && !s.wish.trim();
+    const busy = s.sending || s.rateBusy || s.wishBusy;
     const ctaMap = {
       home: go('bread'), bread: go('fill'), fill: go('sauce'), sauce: go('review'),
-      review: () => this.sendOrder(), wait: go('rate'), rate: () => this.sendRating(), thanks: () => this.newOrder()
+      review: () => this.sendOrder(), wish: () => this.sendWish(), wait: go('rate'), rate: () => this.sendRating(), thanks: () => this.newOrder()
     };
-    const ctaLabel = s.sending || s.rateBusy ? L.sending : L.cta[s.screen];
+    const ctaLabel = busy ? L.sending : L.cta[s.screen];
     const dark = s.screen === 'wait';
     const scale = Math.min(1, (this.width - 30) / 360);
     return {
@@ -584,11 +599,11 @@ class App extends Component {
       waitTitle: typeof wt === 'function' ? wt(who) : wt, scale, dark,
       chrome: dark ? '#F6F1E7' : INK, chromeLine: dark ? 'rgba(246,241,231,.25)' : 'rgba(27,34,56,.22)',
       tt: L.titles[s.screen] || ['', ''],
-      back: go({ bread: 'home', fill: 'bread', sauce: 'fill', review: 'sauce', game: s.gameFrom }[s.screen] || 'home'),
+      back: go({ bread: 'home', fill: 'bread', sauce: 'fill', review: 'sauce', game: s.gameFrom, wish: s.orderId ? 'wait' : 'home' }[s.screen] || 'home'),
       toastTrack: track(s.toast), toastTicks: ticks(L.toastLv, s.toast, (i) => { this.play('crunch'); this.setState({ toast: i }); }),
       saucyTrack: track(s.saucy), saucyTicks: ticks(L.saucy, s.saucy, (i) => this.setState({ saucy: i })),
       showCta: !(s.screen === 'wait' && !ready) && s.screen !== 'game',
-      ctaDisabled: needName || needStar || busy, hint: s.error || (needName ? L.needName : (needStar ? L.tapStar : '')),
+      ctaDisabled: needName || needStar || needWish || needWishName || busy, hint: s.error || (needName ? L.needName : (needStar ? L.tapStar : (needWishName ? L.wishNeedName : ''))),
       ctaLabel, cta: ctaMap[s.screen],
       snd, go
     };
@@ -598,7 +613,7 @@ class App extends Component {
   renderTop(v) {
     const { s, L } = v;
     const isHome = s.screen === 'home';
-    const showBack = v.stepN > 0 || s.screen === 'review' || s.screen === 'game';
+    const showBack = v.stepN > 0 || s.screen === 'review' || s.screen === 'game' || s.screen === 'wish';
     const zoomBg = s.big ? v.chrome : 'transparent';
     const zoomFg = s.big ? (v.dark ? '#121828' : '#F6F1E7') : v.chrome;
     const circ = `width:46px;height:46px;border-radius:50%;border:1px solid ${v.chromeLine};background:transparent;color:${v.chrome};display:flex;align-items:center;justify-content:center;padding:0`;
@@ -659,7 +674,7 @@ class App extends Component {
         <span class="label" style="font-size:13px">${L.spGuests}</span>
         <span style="font-size:17px;color:#5B6075">${L.spNote}</span>
       </div>
-      <button class="press" onClick=${() => this.startGame()} style="width:100%;margin-top:16px;min-height:64px;border:1px solid ${INK};border-radius:2px;background:transparent;color:${INK};display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;font-size:18px">
+      <button class="press" onClick=${() => this.openGame()} style="width:100%;margin-top:16px;min-height:64px;border:1px solid ${INK};border-radius:2px;background:transparent;color:${INK};display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;font-size:18px">
         <span style="display:grid;grid-template-columns:repeat(2,18px);gap:3px" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'toast'].map((t) => html`<img src=${'img/t-' + t + '.webp'} alt="" style="width:18px;height:18px;border-radius:6px;background:${TILE_COL[t][1]}" />`)}</span>
         <span>${L.g.homeGame}</span>
       </button>
@@ -840,28 +855,48 @@ class App extends Component {
         </div>`)}
       </div>
       <span style="font-size:15px;color:rgba(246,241,231,.55);margin-top:22px;font-style:italic">${L.drag}</span>
-      <button class="press" onClick=${() => this.startGame()} style="width:100%;margin-top:30px;min-height:92px;border:1px solid #E8D49A;border-radius:2px;background:rgba(232,212,154,.08);color:#F6F1E7;display:flex;align-items:center;gap:14px;padding:12px 16px;text-align:left">
-        <span style="display:grid;grid-template-columns:repeat(2,24px);gap:4px;flex:none" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'gold'].map((t) => html`<img src=${'img/t-' + t + '.webp'} alt="" style="width:24px;height:24px;border-radius:8px;background:${TILE_COL[t][1]}" />`)}</span>
+      ${!s.wishSent && html`<button class="press" onClick=${() => this.openGame()} style="width:100%;margin-top:30px;min-height:92px;border:0;border-radius:2px;background:#E8D49A;color:#121828;display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left">
+        <span style="width:48px;height:48px;flex:none;border-radius:50%;background:#121828;color:#E8D49A;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16z"></path><path d="M14 6l3 3"></path></svg></span>
         <span style="flex:1;display:flex;flex-direction:column;gap:2px">
-          <span class="label" style="font-size:11px;color:#E8D49A">${L.g.playSub}</span>
-          <span class="serif" style="font-size:26px;font-style:italic">${L.g.playCta}</span>
+          <span class="label" style="font-size:11px;color:#5A4520">${L.whileWait}</span>
+          <span class="serif" style="font-size:24px;line-height:1.2">${L.wishTitle}</span>
+          <span style="font-size:15px;color:#3F3420">${L.wishFirst}</span>
         </span>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+      </button>`}
+      ${s.wishSent && html`<div class="screen" style="width:100%;margin-top:26px;display:flex;align-items:center;justify-content:center;gap:10px;color:#E8D49A">${check(18, 2.2)}<span style="font-size:17px">${L.wishSent}</span></div>`}
+      <button class="press" onClick=${() => this.openGame()} style="width:100%;margin-top:14px;min-height:92px;border:1px solid ${s.wishSent ? '#E8D49A' : 'rgba(246,241,231,.25)'};border-radius:2px;background:${s.wishSent ? 'rgba(232,212,154,.12)' : 'transparent'};color:#F6F1E7;display:flex;align-items:center;gap:14px;padding:12px 16px;text-align:left;opacity:${s.wishSent ? 1 : 0.6}">
+        <span style="display:grid;grid-template-columns:repeat(2,24px);gap:4px;flex:none" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'gold'].map((t) => html`<img src=${'img/t-' + t + '.webp'} alt="" style="width:24px;height:24px;border-radius:8px;background:${TILE_COL[t][1]}" />`)}</span>
+        <span style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span class="label" style="font-size:11px;color:#E8D49A">${s.wishSent ? L.g.playSub : L.g.locked}</span>
+          <span class="serif" style="font-size:26px;font-style:italic">${L.g.playCta}</span>
+        </span>
+        ${s.wishSent ? html`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>`
+          : html`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>`}
       </button>
-      <div style="width:100%;margin-top:14px;border:1px solid rgba(246,241,231,.22);padding:20px 16px;text-align:left;display:flex;flex-direction:column;gap:12px">
-        <span class="label" style="font-size:12px;color:#E8D49A">${L.whileWait}</span>
-        <span class="serif" style="font-size:24px;line-height:1.25">${L.wishTitle}</span>
-        ${!s.wishSent ? html`<div style="display:flex;flex-direction:column;gap:12px">
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${L.wishChips.map((w) => html`<button class="press" onClick=${v.snd('tick', () => this.setState({ wish: w }))} style="min-height:44px;padding:8px 14px;border:1px solid rgba(246,241,231,.4);border-radius:999px;background:transparent;color:#F6F1E7;font-size:16px;text-align:left">${w}</button>`)}
-          </div>
-          <textarea class="dark-ta" maxlength="280" value=${s.wish} onInput=${(e) => this.setState({ wish: e.target.value })} placeholder=${L.wishPh} rows="3" aria-label=${L.wishTitle} style="border:1px solid rgba(246,241,231,.25);border-radius:2px;background:rgba(246,241,231,.06);padding:12px 14px;font-family:inherit;font-size:18px;line-height:1.5;color:#F6F1E7;width:100%;resize:none"></textarea>
-          <button class="press label" onClick=${() => this.sendWish()} disabled=${wishEmpty || s.wishBusy} style="height:54px;border:0;border-radius:2px;background:${wishEmpty ? 'rgba(246,241,231,.2)' : '#F6F1E7'};color:${wishEmpty ? 'rgba(246,241,231,.6)' : '#121828'};font-size:14px">${s.wishBusy ? L.sending : L.wishSend}</button>
-        </div>` : html`<div class="screen" style="display:flex;align-items:center;gap:12px">
-          <span style="width:36px;height:36px;flex:none;border-radius:50%;border:1px solid #E8D49A;color:#E8D49A;display:flex;align-items:center;justify-content:center" aria-hidden="true">${check(18, 2.2)}</span>
-          <span style="font-size:18px;line-height:1.4">${L.wishSent}</span>
-        </div>`}
+    </div>`;
+  }
+
+  renderWish(v) {
+    const { L, s } = v;
+    const ordered = !!s.orderId;
+    const ready = ordered && s.status === 2;
+    return html`<div class="screen" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:14px">
+      ${ready && html`<div class="screen" style="width:100%;margin-bottom:18px;background:#FFE9A8;padding:14px;border-radius:16px;display:flex;align-items:center;gap:12px;text-align:left">
+        <span class="serif" style="flex:1;font-size:20px;line-height:1.25">${L.g.readyBanner}</span>
+        <button class="press label" onClick=${v.snd('tap', () => this.setState({ screen: 'wait', readySeen: true }, () => this.enterWait()))} style="height:48px;padding:0 14px;border:0;border-radius:999px;background:${INK};color:#F6F1E7;font-size:12px">${L.g.readyBtn}</button>
+      </div>`}
+      ${ordered ? html`<span style="display:flex;align-items:center;gap:8px;color:#2E7D4F;font-size:17px;font-weight:500">${check(18, 2.2)} ${L.wishOrderSent}</span>`
+        : html`<span class="label" style="font-size:13px;color:${GOLD}">${L.wishSalmon}</span>`}
+      <div style="margin-top:18px">${CROWN}</div>
+      <h2 class="serif" style="margin:10px 0 0;font-weight:500;font-size:36px;line-height:1.18">${L.wishHead}</h2>
+      <p style="margin:12px 0 0;font-size:19px;line-height:1.5;color:#3F455A;max-width:340px">${ordered ? L.wishSub : L.wishSubSalmon}</p>
+      ${!ordered && html`<input id="wish-name" type="text" maxlength="40" value=${s.scoreName} onInput=${(e) => this.setState({ scoreName: e.target.value })} placeholder=${L.wishNamePh} aria-label=${L.wishNamePh} autocomplete="name" style="margin-top:22px;width:100%;height:58px;border:0;border-bottom:1px solid ${INK};background:transparent;padding:0 2px;font-family:inherit;font-size:21px;color:${INK};border-radius:0" />`}
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:24px">
+        ${L.wishChips.map((w) => { const on = s.wish === w; return html`<button class="press" onClick=${v.snd('tick', () => this.setState({ wish: w, error: '' }))} aria-pressed=${on} style="min-height:48px;padding:8px 16px;border:1px solid ${INK};border-radius:999px;background:${on ? INK : 'transparent'};color:${on ? '#F6F1E7' : INK};font-size:17px">${w}</button>`; })}
       </div>
+      <textarea id="wish-text" maxlength="280" value=${s.wish} onInput=${(e) => this.setState({ wish: e.target.value, error: '' })} placeholder=${L.wishPh} rows="3" aria-label=${L.wishTitle} style="margin-top:20px;border:1px solid rgba(27,34,56,.25);border-radius:2px;background:#FFFFFF;padding:14px;font-family:inherit;font-size:19px;line-height:1.5;color:${INK};width:100%;resize:none;text-align:left"></textarea>
+      ${ordered && html`<button onClick=${v.snd('tap', () => this.setState({ screen: 'wait', error: '' }, () => this.enterWait()))} style="margin-top:18px;height:48px;padding:0 12px;border:0;background:transparent;color:#5B6075;font-size:17px;text-decoration:underline;text-underline-offset:4px">${L.wishSkip}</button>`}
     </div>`;
   }
 
@@ -892,7 +927,7 @@ class App extends Component {
         ${[1, 2, 3, 4, 5].map((n) => html`<svg width="26" height="26" viewBox="0 0 24 24"><path d=${STAR_PATH} fill=${n <= s.stars ? '#D9B25A' : 'transparent'} stroke=${INK} stroke-width="1.1" stroke-linejoin="round"></path></svg>`)}
       </div>
       <p style="margin:18px 0 0;font-size:20px;line-height:1.5;color:#3F455A;max-width:300px">${L.thanksSub}</p>
-      <button class="press" onClick=${() => this.startGame()} style="margin-top:30px;min-height:56px;padding:0 24px;border:1px solid ${INK};border-radius:2px;background:transparent;color:${INK};font-size:18px">${L.g.playCta}</button>
+      <button class="press" onClick=${() => this.openGame()} style="margin-top:30px;min-height:56px;padding:0 24px;border:1px solid ${INK};border-radius:2px;background:transparent;color:${INK};font-size:18px">${L.g.playCta}</button>
     </div>`;
   }
 
@@ -1014,6 +1049,7 @@ class App extends Component {
           ${sc === 'fill' && this.renderFill(v)}
           ${sc === 'sauce' && this.renderSauce(v)}
           ${sc === 'review' && this.renderReview(v)}
+          ${sc === 'wish' && this.renderWish(v)}
           ${sc === 'wait' && this.renderWait(v)}
           ${sc === 'rate' && this.renderRate(v)}
           ${sc === 'thanks' && this.renderThanks(v)}
