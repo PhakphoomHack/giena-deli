@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121828">
+<title>Top Chef · Giena's Deli</title>
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300..600&family=Noto+Serif+Thai:wght@400..600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#121828;color:#F6F1E7;font-family:Jost,'Sarabun',system-ui,sans-serif;overflow-x:hidden}
+.serif{font-family:'Bodoni Moda','Noto Serif Thai',Didot,serif}
+.label{font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 60% 40% at 50% 0%, rgba(241,226,179,.16), rgba(18,24,40,0) 70%)}
+.bulb{width:12px;height:12px;border-radius:50%;box-shadow:0 0 12px rgba(232,212,154,.8);animation:twinkle 1.6s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:1}50%{opacity:.3}}
+.grid{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:2.2vw;padding:0 3vw 3vw}
+@media (max-width: 900px){.grid{grid-template-columns:1fr}}
+.panel{border:1px solid rgba(246,241,231,.18);padding:clamp(16px,2vw,32px);display:flex;flex-direction:column;gap:clamp(10px,1.2vw,18px);min-height:0}
+.row{display:flex;align-items:baseline;gap:14px;padding:clamp(6px,.7vw,12px) 0;border-bottom:1px solid rgba(246,241,231,.1)}
+.wish{animation:wish .8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes wish{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.newrow{animation:hl 2.4s ease}
+@keyframes hl{0%,40%{background:rgba(232,212,154,.25)}100%{background:transparent}}
+.conf{position:fixed;top:-24px;border-radius:2px;animation:conf linear forwards;z-index:9}
+@keyframes conf{to{transform:translateY(110vh) rotate(720deg)}}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div id="app"></div>
+<script type="module">
+import { h, render, Component } from './vendor/preact.js';
+import htm from './vendor/htm.js';
+import { rpc } from './config.js';
+const html = htm.bind(h);
+const TAGS = ['Perfectly toasted', 'Generous fillings', 'Great sauce', 'Beautifully made'];
+const STAR = 'M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z';
+
+class Board extends Component {
+  constructor() { super(); this.state = { d: null, page: 0, offline: false, conf: 0, newWish: null }; this.leader = undefined; this.wishTop = undefined; }
+  componentDidMount() { this.load(); this.t = setInterval(() => this.load(), 5000); this.p = setInterval(() => this.setState({ page: this.state.page + 1 }), 8000); }
+  async load() {
+    try {
+      const d = await rpc('board_data');
+      const lead = d.scores[0] ? d.scores[0].name + ':' + d.scores[0].layers : null;
+      let conf = this.state.conf;
+      if (this.leader !== undefined && lead && lead !== this.leader) conf++;
+      this.leader = lead;
+      const top = d.wishes[0] ? d.wishes[0].created_at : null;
+      let page = this.state.page;
+      if (this.wishTop !== undefined && top && top !== this.wishTop) page = 0;
+      this.wishTop = top;
+      this.setState({ d, offline: false, conf, page });
+    } catch (e) { this.setState({ offline: true }); }
+  }
+  stars(avg, size) {
+    return html`<div style="display:flex;gap:6px">${[1, 2, 3, 4, 5].map((n) => {
+      const fill = Math.max(0, Math.min(1, (avg || 0) - (n - 1)));
+      return html`<svg width=${size} height=${size} viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id=${'g' + n + size}><stop offset=${fill * 100 + '%'} stop-color="#E8D49A"></stop><stop offset=${fill * 100 + '%'} stop-color="transparent"></stop></linearGradient></defs><path d=${STAR} fill=${'url(#g' + n + size + ')'} stroke="#E8D49A" stroke-width="1"></path></svg>`;
+    })}</div>`;
+  }
+  render() {
+    const { d, page, offline, conf } = this.state;
+    const scores = d ? d.scores : [];
+    const wishes = d ? d.wishes : [];
+    const per = 4;
+    const pages = Math.max(1, Math.ceil(wishes.length / per));
+    const pg = page % pages;
+    const shown = wishes.slice(pg * per, pg * per + per);
+    const maxD = d && d.dist ? Math.max(1, ...d.dist) : 1;
+    const COLS = ['#E8D49A', '#D9E6F1', '#EFD3D7', '#F6F1E7'];
+    return html`<div style="position:relative;min-height:100vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;padding:18px 3vw 0">${Array.from({ length: 15 }, (_, i) => html`<span class="bulb" style="background:${['#E8D49A', '#D9E6F1', '#EFD3D7'][i % 3]};animation-delay:${i * 0.15}s"></span>`)}</div>
+      <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:2vw 3vw;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:22px">
+          <div style="display:flex;flex-direction:column;align-items:center;line-height:1">
+            <span class="serif" style="font-style:italic;font-size:clamp(40px,4.6vw,84px)">Giena's</span>
+            <span class="label" style="font-size:clamp(11px,.9vw,16px);letter-spacing:.5em;margin-top:8px;color:#E8D49A">Deli · Est. 1999</span>
+          </div>
+          <span style="width:1px;height:70px;background:rgba(246,241,231,.25)"></span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span class="serif" style="font-size:clamp(24px,2.4vw,44px)">Happy 27th, Giena</span>
+            <span style="font-size:clamp(15px,1.2vw,22px);color:rgba(246,241,231,.75)">${d ? d.orders + ' sandwiches ordered tonight' : ' '}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right">
+            <span class="label" style="font-size:clamp(12px,1vw,18px);color:#E8D49A">Scan to order</span>
+            <span style="font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.75)">and play Stack It</span>
+          </div>
+          <img src="qr/guest.svg" alt="QR code to order" onError=${(e) => { e.target.style.display = 'none'; }} style="width:clamp(90px,8vw,150px);height:auto;background:#FFFFFF;padding:8px" />
+        </div>
+      </header>
+      ${offline && html`<div style="margin:0 3vw 12px;padding:8px 14px;background:rgba(194,65,107,.3);font-size:16px">Reconnecting…</div>`}
+      <div class="grid" style="flex:1">
+        <section class="panel">
+          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Stack It</span>
+          <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">Top Chef</h2>
+          ${scores.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">No scores yet. Who will stack the tallest sandwich?</p>`}
+          <div>${scores.map((r, i) => html`<div key=${r.name + r.layers} class=${'row ' + (i === 0 ? 'newrow' : '')}>
+            <span class="serif" style="width:2ch;font-size:clamp(22px,2vw,38px);color:${i < 3 ? '#E8D49A' : 'rgba(246,241,231,.5)'}">${i + 1}</span>
+            <span class="serif" style="flex:1;min-width:0;font-size:clamp(20px,1.7vw,32px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i === 0 ? '♛ ' : ''}${r.name}</span>
+            <span class="serif" style="font-size:clamp(22px,2vw,38px);color:#E8D49A">${r.layers}</span>
+            <span style="font-size:clamp(12px,.9vw,16px);color:rgba(246,241,231,.6)">layers</span>
+          </div>`)}</div>
+        </section>
+        <section class="panel">
+          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">The sandwich</span>
+          <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">Guest ratings</h2>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+            <span class="serif" style="font-size:clamp(64px,7vw,130px);line-height:1;color:#E8D49A">${d && d.avg ? Number(d.avg).toFixed(1) : '–'}</span>
+            <div style="display:flex;flex-direction:column;gap:8px">${this.stars(d ? Number(d.avg) : 0, 30)}<span style="font-size:clamp(15px,1.2vw,22px);color:rgba(246,241,231,.75)">${d ? d.count + (d.count === 1 ? ' review' : ' reviews') : ''}</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">${d && [5, 4, 3, 2, 1].map((st) => html`<div style="display:flex;align-items:center;gap:10px">
+            <span style="width:2.4ch;font-size:clamp(14px,1.1vw,20px)">${st}★</span>
+            <span style="flex:1;height:10px;background:rgba(246,241,231,.1)"><span style="display:block;height:100%;width:${(d.dist[st - 1] / maxD) * 100}%;background:#E8D49A;transition:width .8s ease"></span></span>
+            <span style="width:3ch;text-align:right;font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.7)">${d.dist[st - 1]}</span>
+          </div>`)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${d && TAGS.map((t, i) => html`<span style="border:1px solid rgba(246,241,231,.3);border-radius:999px;padding:8px 14px;font-size:clamp(14px,1vw,19px)">${t} <b style="color:#E8D49A;font-weight:600">${d.tags[i]}</b></span>`)}</div>
+        </section>
+        <section class="panel">
+          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Wish wall</span>
+          <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">For Giena, with love</h2>
+          ${wishes.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">Birthday wishes will appear here.</p>`}
+          <div style="display:flex;flex-direction:column;gap:14px">${shown.map((w, i) => html`<div key=${pg + '-' + i + w.created_at} class="wish" style="animation-delay:${i * 0.12}s;border-left:3px solid ${COLS[i % 4]};padding:6px 0 6px 18px">
+            <p class="serif" style="margin:0;font-style:italic;font-size:clamp(20px,1.7vw,32px);line-height:1.35;word-break:break-word">${w.message}</p>
+            ${w.name && html`<span class="label" style="display:block;margin-top:8px;font-size:clamp(11px,.85vw,15px);color:rgba(246,241,231,.65)">${w.name}</span>`}
+          </div>`)}</div>
+          ${pages > 1 && html`<div style="display:flex;gap:6px;margin-top:auto">${Array.from({ length: pages }, (_, i) => html`<span style="width:${i === pg ? 22 : 8}px;height:4px;background:${i === pg ? '#E8D49A' : 'rgba(246,241,231,.3)'};transition:width .4s"></span>`)}</div>`}
+        </section>
+      </div>
+      ${conf > 0 && html`<div key=${'c' + conf} aria-hidden="true">${Array.from({ length: 50 }, (_, i) => html`<span class="conf" style="left:${(i * 37) % 100}%;width:${8 + (i % 3) * 4}px;height:${14 + (i % 4) * 4}px;background:${['#E8D49A', '#D9E6F1', '#EFD3D7', '#F6F1E7'][i % 4]};animation-delay:${((i * 7) % 10) / 8}s;animation-duration:${3 + ((i * 13) % 10) / 4}s"></span>`)}</div>`}
+    </div>`;
+  }
+}
+render(html`<${Board} />`, document.getElementById('app'));
+</script>
+</body>
+</html>

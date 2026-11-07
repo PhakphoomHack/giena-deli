@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F6F1E7">
+<title>Kitchen · Giena's Deli</title>
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300..600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#F6F1E7;color:#1B2238;font-family:Jost,'Sarabun',system-ui,sans-serif}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #8A6A2F;outline-offset:2px}
+.serif{font-family:'Bodoni Moda',Didot,serif}
+.label{font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+.ticket{animation:drop .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes drop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+.press:active{transform:scale(.98)}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.zig{height:10px;background:linear-gradient(-45deg,#FFFFFF 5px,transparent 0),linear-gradient(45deg,#FFFFFF 5px,transparent 0);background-size:10px 10px;background-repeat:repeat-x;background-position:left bottom}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;padding:16px 20px 40px;align-items:start}
+.flash{animation:flash 1.2s ease 3}
+@keyframes flash{50%{background:#E8D49A}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+import { h, render, Component } from './vendor/preact.js';
+import htm from './vendor/htm.js';
+import { rpc } from './config.js';
+const html = htm.bind(h);
+const INK = '#1B2238';
+const KEY = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+const COLS = [
+  { key: 'new', title: 'New', dot: '#F9D6DF', flag: '#C2416B', empty: 'No new orders', btn: 'Start making', next: 'making', prev: null },
+  { key: 'making', title: 'Making', dot: '#FFE9A8', flag: '#E9B92C', empty: 'Nothing on the board', btn: 'Mark ready', next: 'ready', prev: 'new' },
+  { key: 'ready', title: 'Ready to collect', dot: '#D9E6F1', flag: '#7FA8CF', empty: 'Nothing waiting', btn: 'Collected', next: 'collected', prev: 'making' }
+];
+const LANG = { en: 'English', th: 'ภาษาไทย', de: 'Deutsch' };
+const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - new Date(t).getTime()) / 60000)); return m < 1 ? 'just now' : m === 1 ? '1 min ago' : m + ' min ago'; };
+
+class Kitchen extends Component {
+  constructor() { super(); this.state = { orders: [], loaded: false, denied: false, offline: false, alerts: false, stats: null, fresh: {} }; this.seen = null; }
+  componentDidMount() { this.load(); this.timer = setInterval(() => this.load(), 3000); this.clock = setInterval(() => this.forceUpdate(), 30000); }
+  async load() {
+    if (!KEY) { this.setState({ denied: true, loaded: true }); return; }
+    try {
+      const [orders, stats] = await Promise.all([rpc('kitchen_orders', { p_key: KEY }), rpc('kitchen_stats', { p_key: KEY })]);
+      const ids = new Set(orders.map((o) => o.id));
+      const fresh = { ...this.state.fresh };
+      let added = 0;
+      if (this.seen) orders.forEach((o) => { if (!this.seen.has(o.id)) { fresh[o.id] = Date.now(); added++; } });
+      this.seen = ids;
+      Object.keys(fresh).forEach((k) => { if (Date.now() - fresh[k] > 90000) delete fresh[k]; });
+      if (added) this.alert(added);
+      this.setState({ orders, stats, fresh, loaded: true, offline: false, denied: false });
+    } catch (e) {
+      const denied = String(e.message).includes('not allowed') || String(e.message).startsWith('403');
+      this.setState({ denied, offline: !denied, loaded: true });
+    }
+  }
+  alert(n) {
+    const newCount = this.state.orders.filter((o) => o.status === 'new').length + n;
+    document.title = '(' + newCount + ') New order · Kitchen';
+    setTimeout(() => { document.title = "Kitchen · Giena's Deli"; }, 8000);
+    if (!this.state.alerts || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    [659.25, 880, 1318.5].forEach((f, i) => {
+      const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + i * 0.16);
+      g.gain.exponentialRampToValueAtTime(0.2, t + i * 0.16 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.16 + 0.7);
+      o.connect(g); g.connect(this.ctx.destination); o.start(t + i * 0.16); o.stop(t + i * 0.16 + 0.8);
+    });
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+  }
+  async enableAlerts() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC && !this.ctx) this.ctx = new AC();
+    if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume();
+    try { if (navigator.wakeLock) this.lock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    this.setState({ alerts: true }, () => this.alert(0));
+  }
+  async move(o, status) {
+    const prev = o.status;
+    this.setState({ orders: this.state.orders.map((x) => (x.id === o.id ? { ...x, status, updated_at: new Date().toISOString() } : x)) });
+    try { await rpc('kitchen_set_status', { p_key: KEY, p_id: o.id, p_status: status }); }
+    catch (e) { this.setState({ orders: this.state.orders.map((x) => (x.id === o.id ? { ...x, status: prev } : x)), offline: true }); }
+  }
+  ticket(o, c) {
+    const fresh = !!this.state.fresh[o.id];
+    const lines = [['Bread', o.bread], ['Fill', o.fillings], ['Sauce', o.sauces], ['Side', o.side]];
+    return html`<div key=${o.id} class="ticket" style="filter:drop-shadow(0 2px 3px rgba(27,34,56,.14))">
+      <div class="zig"></div>
+      <div class=${fresh ? 'flash' : ''} style="background:#FFFFFF;padding:6px 16px 16px;display:flex;flex-direction:column;gap:10px;border-left:6px solid ${c.flag}">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;border-bottom:1.5px dotted rgba(27,34,56,.4);padding-bottom:6px">
+          <span class="serif" style="font-size:30px;line-height:1.1;font-weight:500;word-break:break-word">${o.name}</span>
+          <span style="font-size:15px;color:#4A5570;white-space:nowrap">${ago(o.created_at)}</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="label" style="font-size:11px;border:1px solid rgba(27,34,56,.3);padding:3px 8px">${LANG[o.lang] || o.lang}</span>
+          ${fresh && html`<span class="label pulse" style="font-size:12px;color:#C2416B;border:2px solid #C2416B;padding:2px 8px">Just in</span>`}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          ${lines.map(([k, val]) => html`<div style="display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:baseline">
+            <span class="label" style="font-size:12px;color:#C2416B">${k}</span>
+            <span style="font-size:19px;line-height:1.35">${val}</span>
+          </div>`)}
+        </div>
+        ${o.note && html`<div style="display:flex;gap:10px;align-items:flex-start;background:#FFE27A;padding:8px 10px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1B2238" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 3l9.5 17h-19z"></path><path d="M12 10v4M12 17.5v.5"></path></svg>
+          <span style="font-size:19px;font-weight:600;line-height:1.35;word-break:break-word">${o.note}</span>
+        </div>`}
+        <button class="press label" onClick=${() => this.move(o, c.next)} style="height:58px;border-radius:6px;border:2px solid ${INK};background:${c.key === 'ready' ? '#FFFFFF' : INK};color:${c.key === 'ready' ? INK : '#FFFFFF'};font-size:16px">${c.btn}</button>
+        ${c.prev && html`<button onClick=${() => this.move(o, c.prev)} style="height:40px;border:0;background:transparent;color:#4A5570;font-size:15px;text-decoration:underline;text-underline-offset:3px">Undo</button>`}
+      </div>
+    </div>`;
+  }
+  render() {
+    const st = this.state;
+    if (st.denied) return html`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center">
+      <span class="serif" style="font-style:italic;font-size:44px">Giena's</span>
+      <span style="font-size:20px">This page is for the kitchen only.</span>
+      <span style="font-size:16px;color:#4A5570">Please scan the kitchen QR code again.</span></div>`;
+    const by = (k) => st.orders.filter((o) => o.status === k);
+    const stats = st.stats || {};
+    return html`<div>
+      <div style="position:sticky;top:0;z-index:5;background:#F6F1E7;border-bottom:3px double ${INK};padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;line-height:1"><span class="serif" style="font-style:italic;font-size:30px">Giena's</span><span class="label" style="font-size:10px;letter-spacing:.45em;margin-top:4px">Deli</span></div>
+          <span style="width:1px;height:40px;background:rgba(27,34,56,.25)"></span>
+          <span class="serif" style="font-size:30px">Kitchen</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          ${COLS.map((c) => html`<div style="display:flex;align-items:baseline;gap:6px"><span class="serif" style="font-size:32px;color:${c.key === 'new' ? '#C2416B' : INK}">${by(c.key).length}</span><span style="font-size:16px">${c.key}</span></div>`)}
+          <div style="display:flex;align-items:baseline;gap:6px;color:#4A5570"><span class="serif" style="font-size:32px">${stats.collected ?? 0}</span><span style="font-size:16px">collected</span></div>
+          <div style="display:flex;align-items:baseline;gap:6px"><span class="serif" style="font-size:32px;color:#8A6A2F">${stats.avg ?? '–'}</span><span style="font-size:16px">★ (${stats.ratings ?? 0})</span></div>
+          ${!st.alerts ? html`<button class="press label" onClick=${() => this.enableAlerts()} style="height:48px;padding:0 16px;border:0;border-radius:6px;background:#C2416B;color:#FFFFFF;font-size:13px">Turn on order alerts</button>`
+            : html`<span class="label" style="font-size:12px;color:#2E7D4F">● Alerts on</span>`}
+        </div>
+      </div>
+      ${st.offline && html`<div role="alert" style="background:#C2416B;color:#FFFFFF;padding:10px 20px;font-size:17px">Connection lost. Retrying…</div>`}
+      ${!st.loaded ? html`<p style="padding:40px;text-align:center;font-size:18px">Loading orders…</p>` : html`<div class="cols">
+        ${COLS.map((c) => html`<section style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid ${INK};padding-bottom:6px">
+            <h2 class="serif" style="margin:0;font-size:28px;font-weight:500">${c.title}</h2>
+            <span style="width:34px;height:34px;border-radius:50%;background:${c.dot};border:2px solid ${INK};font-weight:600;font-size:17px;display:flex;align-items:center;justify-content:center">${by(c.key).length}</span>
+          </div>
+          ${by(c.key).length === 0 && html`<div style="padding:22px 8px;text-align:center;font-size:18px;color:#4A5570;border:2px dashed rgba(27,34,56,.3)">${c.empty}</div>`}
+          ${by(c.key).map((o) => this.ticket(o, c))}
+        </section>`)}
+      </div>`}
+    </div>`;
+  }
+}
+render(html`<${Kitchen} />`, document.getElementById('app'));
+</script>
+</body>
+</html>
