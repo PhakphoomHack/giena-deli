@@ -24,10 +24,11 @@ const SAUCES = [
   { id: 'mustard', img: 'img/mustard_bowl.webp' },
   { id: 'garlic', img: 'img/garlic_bowl.webp' },
   { id: 'thousand', img: 'img/thousand_bowl.webp' },
-  { id: 'pesto', img: 'img/pesto_bowl.webp' }
+  { id: 'pesto', img: 'img/pesto-bowl-2.webp' }
 ];
 const ROT = [[0], [-4, 5], [-6, 3, 8]];
 const TILE_COL = { brisket: ['#F28BA8', '#F7C4D1'], avocado: ['#7CCB86', '#BFE5C2'], onion: ['#F6A86B', '#F9C9A6'], cheese: ['#F2BE3A', '#FFE08A'], pickle: ['#A98BE0', '#D3C8F2'], toast: ['#8DB6E0', '#C7DAEE'], pesto: ['#6E9440', '#E9ECE4'], gold: ['#E9B92C', '#F6D46A'] };
+const tileSrc = (t) => 'img/t-' + t + (t === 'pesto' ? '-2' : '') + '.webp';
 const STATUS_IDX = { new: 0, making: 1, ready: 2, collected: 2 };
 
 const check = (size, sw) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=${sw} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>`;
@@ -534,7 +535,7 @@ class App extends Component {
     const load = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
     const types = [...M.TYPES, 'gold'];
     const imgs = {};
-    for (const t of types) imgs[t] = await load('img/t-' + t + '.webp');
+    for (const t of types) imgs[t] = await load(tileSrc(t));
     const grid = ['brisket', 'avocado', 'cheese', 'onion', 'toast', 'gold', 'gold', 'pickle', 'cheese', 'gold', 'avocado', 'brisket', 'onion', 'pickle', 'toast', 'cheese'];
     const T = 150, gap = 18, gx = (W - (T * 4 + gap * 3)) / 2, gy = 290;
     c.save(); c.shadowColor = 'rgba(138,106,47,.25)'; c.shadowBlur = 40; c.fillStyle = '#FFFBF2';
@@ -704,7 +705,7 @@ class App extends Component {
         <span style="font-size:17px;color:#5B6075">${L.spNote}</span>
       </div>
       <button class="press" onClick=${() => this.openGame()} style="width:100%;margin-top:16px;min-height:64px;border:1px solid ${INK};border-radius:2px;background:transparent;color:${INK};display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;font-size:18px">
-        <span style="display:grid;grid-template-columns:repeat(2,18px);gap:3px" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'toast'].map((t) => html`<img src=${'img/t-' + t + '.webp'} alt="" style="width:18px;height:18px;border-radius:6px;background:${TILE_COL[t][1]}" />`)}</span>
+        <span style="display:grid;grid-template-columns:repeat(2,18px);gap:3px" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'toast'].map((t) => html`<img src=${tileSrc(t)} alt="" style="width:18px;height:18px;border-radius:6px;background:${TILE_COL[t][1]}" />`)}</span>
         <span>${L.g.homeGame}</span>
       </button>
     </div>`;
@@ -895,7 +896,7 @@ class App extends Component {
       </button>`}
       ${s.wishSent && html`<div class="screen" style="width:100%;margin-top:26px;display:flex;align-items:center;justify-content:center;gap:10px;color:#E8D49A">${check(18, 2.2)}<span style="font-size:17px">${L.wishSent}</span></div>`}
       <button class="press" onClick=${() => this.openGame()} style="width:100%;margin-top:14px;min-height:92px;border:1px solid ${s.wishSent ? '#E8D49A' : 'rgba(246,241,231,.25)'};border-radius:2px;background:${s.wishSent ? 'rgba(232,212,154,.12)' : 'transparent'};color:#F6F1E7;display:flex;align-items:center;gap:14px;padding:12px 16px;text-align:left;opacity:${s.wishSent ? 1 : 0.6}">
-        <span style="display:grid;grid-template-columns:repeat(2,24px);gap:4px;flex:none" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'gold'].map((t) => html`<img src=${'img/t-' + t + '.webp'} alt="" style="width:24px;height:24px;border-radius:8px;background:${TILE_COL[t][1]}" />`)}</span>
+        <span style="display:grid;grid-template-columns:repeat(2,24px);gap:4px;flex:none" aria-hidden="true">${['brisket', 'avocado', 'cheese', 'gold'].map((t) => html`<img src=${tileSrc(t)} alt="" style="width:24px;height:24px;border-radius:8px;background:${TILE_COL[t][1]}" />`)}</span>
         <span style="flex:1;display:flex;flex-direction:column;gap:2px">
           <span class="label" style="font-size:11px;color:#E8D49A">${s.wishSent ? L.g.playSub : L.g.locked}</span>
           <span class="serif" style="font-size:26px;font-style:italic">${L.g.playCta}</span>
@@ -940,7 +941,7 @@ class App extends Component {
   }
 
   miniTile(t, sp, size) {
-    return html`<span style="position:relative;display:inline-block;width:${size}px;height:${size}px;flex:none" aria-hidden="true"><span class=${'mt-in mt-' + t + (sp ? ' sp-' + sp : '')} style="inset:2px"><img src=${'img/t-' + t + '.webp'} alt="" /></span></span>`;
+    return html`<span style="position:relative;display:inline-block;width:${size}px;height:${size}px;flex:none" aria-hidden="true"><span class=${'mt-in mt-' + t + (sp ? ' sp-' + sp : '')} style="inset:2px"><img src=${tileSrc(t)} alt="" /></span></span>`;
   }
   renderGame(v) {
     const { L, s } = v; const G = s.game;
@@ -958,12 +959,12 @@ class App extends Component {
       const cls = 'mt-in mt-' + t.t + (G.sel === i ? ' sel' : '') + (hint.has(i) ? ' hint' : '') + (bad.has(i) ? ' bad' : '') + (t.sp ? ' sp-' + t.sp : '');
       return html`<div key=${t.id} class="mt" style="width:${S}px;height:${S}px;${pos(i)}">
         <div class=${f ? 'mt-b mfall' : 'mt-b'} style=${f ? `--fy:${-f * S}px;animation-delay:${(c * 0.018).toFixed(3)}s` : ''}>
-          <div class=${cls}><img src=${'img/t-' + t.t + '.webp'} alt="" draggable="false" /></div>
+          <div class=${cls}><img src=${tileSrc(t.t)} alt="" draggable="false" /></div>
         </div>
       </div>`;
     });
     const pops = G.pops.map((p) => html`<div key=${'p' + p.id} class="mt mpop" style="width:${S}px;height:${S}px;${pos(p.i)}" aria-hidden="true">
-      <div class=${'mt-in mt-' + p.t}><img src=${'img/t-' + p.t + '.webp'} alt="" /></div>
+      <div class=${'mt-in mt-' + p.t}><img src=${tileSrc(p.t)} alt="" /></div>
       <span style="position:absolute;left:50%;top:50%;--pc:${TILE_COL[p.t][0]}">${[0, 1, 2, 3, 4, 5].map((k) => html`<span class="spark mspk" style="transform:rotate(${k * 60 + 20}deg)"><span></span></span>`)}</span>
     </div>`);
     const fx = G.fx.map((e, k) => e.kind === 'line'
