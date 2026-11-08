@@ -57,12 +57,12 @@ const LANG = { en: 'English', th: 'ภาษาไทย', de: 'Deutsch' };
 const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - new Date(t).getTime()) / 60000)); return m < 1 ? 'just now' : m === 1 ? '1 min ago' : m + ' min ago'; };
 
 class Kitchen extends Component {
-  constructor() { super(); this.state = { orders: [], loaded: false, denied: false, offline: false, alerts: false, stats: null, fresh: {}, confirmDel: null, sent: null, manage: false, wishes: [], resetText: '', armOrders: false, resetMsg: '', resetBusy: false }; this.seen = null; }
+  constructor() { super(); this.state = { orders: [], loaded: false, denied: false, offline: false, alerts: false, fresh: {}, confirmDel: null, sent: null }; this.seen = null; }
   componentDidMount() { this.load(); this.timer = setInterval(() => this.load(), 3000); this.clock = setInterval(() => this.forceUpdate(), 30000); }
   async load() {
     if (!KEY) { this.setState({ denied: true, loaded: true }); return; }
     try {
-      const [orders, stats] = await Promise.all([rpc('kitchen_orders', { p_key: KEY }), rpc('kitchen_stats', { p_key: KEY })]);
+      const orders = await rpc('kitchen_orders', { p_key: KEY });
       const ids = new Set(orders.map((o) => o.id));
       const fresh = { ...this.state.fresh };
       let added = 0;
@@ -70,8 +70,7 @@ class Kitchen extends Component {
       this.seen = ids;
       Object.keys(fresh).forEach((k) => { if (Date.now() - fresh[k] > 90000) delete fresh[k]; });
       if (added) this.alert(added);
-      this.setState({ orders, stats, fresh, loaded: true, offline: false, denied: false });
-      if (this.state.manage) this.loadWishes();
+      this.setState({ orders, fresh, loaded: true, offline: false, denied: false });
     } catch (e) {
       const denied = String(e.message).includes('not allowed') || String(e.message).startsWith('403');
       this.setState({ denied, offline: !denied, loaded: true });
@@ -121,60 +120,6 @@ class Kitchen extends Component {
     try { await rpc('kitchen_delete_order', { p_key: KEY, p_id: o.id }); }
     catch (e) { this.setState({ orders: keep, offline: true }); }
   }
-  async loadWishes() {
-    try { const w = await rpc('kitchen_wishes', { p_key: KEY }); this.setState({ wishes: w || [] }); } catch (e) {}
-  }
-  async hideWish(w) {
-    this.setState({ wishes: this.state.wishes.map((x) => (x.id === w.id ? { ...x, hidden: !w.hidden } : x)) });
-    try { await rpc('kitchen_hide_wish', { p_key: KEY, p_id: w.id, p_hidden: !w.hidden }); } catch (e) { this.loadWishes(); }
-  }
-  async reset(scope) {
-    if (this.state.resetBusy) return;
-    this.setState({ resetBusy: true, resetMsg: '' });
-    try {
-      const r = await rpc('kitchen_reset', { p_key: KEY, p_scope: scope });
-      const msg = scope === 'all'
-        ? 'Done. Removed ' + r.orders + ' orders, ' + r.ratings + ' ratings, ' + r.wishes + ' wishes and ' + r.scores + ' scores.'
-        : 'Done. Removed ' + r.orders + ' orders.';
-      this.seen = new Set();
-      this.setState({ resetBusy: false, resetMsg: msg, resetText: '', armOrders: false, orders: [], wishes: scope === 'all' ? [] : this.state.wishes });
-      this.load();
-    } catch (e) { this.setState({ resetBusy: false, resetMsg: 'That did not work. Please check the connection and try again.' }); }
-  }
-  manage() {
-    const st = this.state;
-    const ready = st.resetText.trim().toUpperCase() === 'RESET';
-    const box = 'background:#FFFFFF;border:1px solid rgba(27,34,56,.18);padding:18px;display:flex;flex-direction:column;gap:12px';
-    return html`<div style="padding:16px 20px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;align-items:start">
-      <section style=${box}>
-        <h2 class="serif" style="margin:0;font-size:26px;font-weight:500">Birthday wishes</h2>
-        <span style="font-size:15px;color:#4A5570">Hidden wishes stay off the TV board.</span>
-        ${st.wishes.length === 0 && html`<span style="font-size:17px;color:#4A5570;font-style:italic">No wishes yet.</span>`}
-        <div style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto">
-          ${st.wishes.map((w) => html`<div key=${w.id} style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(27,34,56,.1);opacity:${w.hidden ? 0.5 : 1}">
-            <span style="flex:1;min-width:0;font-size:17px;line-height:1.4;word-break:break-word"><b>${w.name || 'A guest'}</b>: ${w.message}</span>
-            <button class="press label" onClick=${() => this.hideWish(w)} style="flex:none;height:44px;padding:0 12px;border:1.5px solid ${INK};border-radius:6px;background:${w.hidden ? INK : '#FFFFFF'};color:${w.hidden ? '#FFFFFF' : INK};font-size:12px">${w.hidden ? 'Show' : 'Hide'}</button>
-          </div>`)}
-        </div>
-      </section>
-      <section style=${box}>
-        <h2 class="serif" style="margin:0;font-size:26px;font-weight:500">Reset</h2>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <span style="font-size:17px;font-weight:600">Clear all orders</span>
-          <span style="font-size:15px;color:#4A5570">Removes every ticket. Ratings, wishes and game scores stay.</span>
-          <button class="press label" onClick=${() => (st.armOrders ? this.reset('orders') : this.setState({ armOrders: true, resetMsg: '' }))} disabled=${st.resetBusy} style="height:52px;border:2px solid #C2416B;border-radius:6px;background:${st.armOrders ? '#C2416B' : '#FFFFFF'};color:${st.armOrders ? '#FFFFFF' : '#C2416B'};font-size:14px">${st.armOrders ? 'Tap again to clear all orders' : 'Clear all orders'}</button>
-          ${st.armOrders && html`<button onClick=${() => this.setState({ armOrders: false })} style="height:40px;border:0;background:transparent;color:#4A5570;font-size:15px;text-decoration:underline">Cancel</button>`}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(27,34,56,.12);padding-top:12px">
-          <span style="font-size:17px;font-weight:600">Reset the whole party</span>
-          <span style="font-size:15px;color:#4A5570">Removes orders, ratings, wishes and game scores. Use this after testing. Type RESET to confirm.</span>
-          <input type="text" value=${st.resetText} onInput=${(e) => this.setState({ resetText: e.target.value })} placeholder="Type RESET" aria-label="Type RESET to confirm" autocapitalize="characters" style="height:52px;border:1.5px solid rgba(27,34,56,.35);border-radius:6px;padding:0 12px;font-size:18px;font-family:inherit" />
-          <button class="press label" onClick=${() => this.reset('all')} disabled=${!ready || st.resetBusy} style="height:52px;border:0;border-radius:6px;background:${ready ? '#C2416B' : '#D8D6D0'};color:${ready ? '#FFFFFF' : '#5B6075'};font-size:14px">${st.resetBusy ? 'Working…' : 'Reset everything'}</button>
-        </div>
-        ${st.resetMsg && html`<span role="status" style="font-size:16px;color:#2E7D4F">${st.resetMsg}</span>`}
-      </section>
-    </div>`;
-  }
   ticket(o, c) {
     const fresh = !!this.state.fresh[o.id];
     const lines = [['Bread', o.bread], ['Fill', o.fillings], ['Sauce', o.sauces], ['Side', o.side]];
@@ -220,7 +165,6 @@ class Kitchen extends Component {
       <span style="font-size:20px">This page is for the kitchen only.</span>
       <span style="font-size:16px;color:#4A5570">Please scan the kitchen QR code again.</span></div>`;
     const by = (k) => st.orders.filter((o) => o.status === k);
-    const stats = st.stats || {};
     return html`<div>
       <div style="position:sticky;top:0;z-index:5;background:#F6F1E7;border-bottom:3px double ${INK};padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:14px">
@@ -230,9 +174,6 @@ class Kitchen extends Component {
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           ${COLS.map((c) => html`<div style="display:flex;align-items:baseline;gap:6px"><span class="serif" style="font-size:32px;color:${c.key === 'new' ? '#C2416B' : INK}">${by(c.key).length}</span><span style="font-size:16px">${c.key}</span></div>`)}
-          <div style="display:flex;align-items:baseline;gap:6px;color:#4A5570"><span class="serif" style="font-size:32px">${stats.collected ?? 0}</span><span style="font-size:16px">collected</span></div>
-          <div style="display:flex;align-items:baseline;gap:6px"><span class="serif" style="font-size:32px;color:#8A6A2F">${stats.avg ?? '–'}</span><span style="font-size:16px">★ (${stats.ratings ?? 0})</span></div>
-          <button class="press label" onClick=${() => { const m = !st.manage; this.setState({ manage: m, resetMsg: '', armOrders: false }); if (m) this.loadWishes(); }} aria-pressed=${st.manage} style="height:48px;padding:0 16px;border:2px solid ${INK};border-radius:6px;background:${st.manage ? INK : 'transparent'};color:${st.manage ? '#FFFFFF' : INK};font-size:13px">${st.manage ? 'Close manage' : 'Manage'}</button>
           ${!st.alerts ? html`<button class="press label" onClick=${() => this.enableAlerts()} style="height:48px;padding:0 16px;border:0;border-radius:6px;background:#C2416B;color:#FFFFFF;font-size:13px">Turn on order alerts</button>`
             : html`<span class="label" style="font-size:12px;color:#2E7D4F">● Alerts on</span>`}
         </div>
@@ -242,7 +183,6 @@ class Kitchen extends Component {
         <span style="display:flex;flex-direction:column;gap:2px"><span class="serif" style="font-size:24px;line-height:1.1">Sent to ${st.sent.name}</span><span style="font-size:15px;color:#4A5570">Their phone just lit up with the good news.</span></span>
         ${[0, 1, 2, 3, 4, 5].map((i) => html`<i class="sent-sp" style="--a:${i * 60}deg;--c:${['#F9D6DF', '#FFE9A8', '#D9E6F1'][i % 3]}"></i>`)}
       </div>`}
-      ${st.manage && this.manage()}
       ${st.offline && html`<div role="alert" style="background:#C2416B;color:#FFFFFF;padding:10px 20px;font-size:17px">Connection lost. Retrying…</div>`}
       ${!st.loaded ? html`<p style="padding:40px;text-align:center;font-size:18px">Loading orders…</p>` : html`<div class="cols">
         ${COLS.map((c) => html`<section style="display:flex;flex-direction:column;gap:14px">

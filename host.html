@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F6F1E7">
+<title>Host · Giena's Deli</title>
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300..600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#F6F1E7;color:#1B2238;font-family:Jost,'Sarabun',system-ui,sans-serif}
+button,a{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #8A6A2F;outline-offset:2px}
+.serif{font-family:'Bodoni Moda',Didot,serif}
+.label{font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+.press:active{transform:scale(.98)}
+.wrap{max-width:720px;margin:0 auto;padding:0 18px 60px}
+.card{background:#FFFFFF;border:1px solid rgba(27,34,56,.16);padding:18px;display:flex;flex-direction:column;gap:6px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(27,34,56,.1)}
+.row:last-child{border-bottom:0}
+.tag{display:inline-block;white-space:nowrap;font-size:11px;padding:3px 8px;border-radius:999px;vertical-align:1px}
+.btn{flex:none;height:46px;min-width:84px;padding:0 14px;border:1.5px solid #1B2238;border-radius:6px;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+import { h, render, Component } from './vendor/preact.js';
+import htm from './vendor/htm.js';
+import { rpc } from './config.js';
+const html = htm.bind(h);
+const INK = '#1B2238';
+const KEY = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+
+class Host extends Component {
+  constructor() { super(); this.state = { d: null, denied: false, offline: false, resetText: '', armOrders: false, resetMsg: '', resetBusy: false }; }
+  componentDidMount() { this.load(); this.timer = setInterval(() => this.load(), 5000); }
+  async load() {
+    if (!KEY) { this.setState({ denied: true }); return; }
+    try { const d = await rpc('host_data', { p_key: KEY }); this.setState({ d, offline: false, denied: false }); }
+    catch (e) { const denied = String(e.message).includes('not allowed') || String(e.message).startsWith('403'); this.setState({ denied, offline: !denied }); }
+  }
+  async hideName(r) {
+    const d = this.state.d;
+    this.setState({ d: { ...d, scores: d.scores.map((x) => (x.name === r.name ? { ...x, hidden: !r.hidden } : x)) } });
+    try { await rpc('host_hide_name', { p_key: KEY, p_name: r.name, p_hidden: !r.hidden }); } catch (e) { this.load(); }
+  }
+  async hideWish(w) {
+    const d = this.state.d;
+    this.setState({ d: { ...d, wishes: d.wishes.map((x) => (x.id === w.id ? { ...x, hidden: !w.hidden } : x)) } });
+    try { await rpc('host_hide_wish', { p_key: KEY, p_id: w.id, p_hidden: !w.hidden }); } catch (e) { this.load(); }
+  }
+  async reset(scope) {
+    if (this.state.resetBusy) return;
+    this.setState({ resetBusy: true, resetMsg: '' });
+    try {
+      const r = await rpc('host_reset', { p_key: KEY, p_scope: scope });
+      const msg = scope === 'all' ? 'Done. Removed ' + r.orders + ' orders, ' + r.ratings + ' ratings, ' + r.wishes + ' wishes and ' + r.scores + ' scores.' : 'Done. Removed ' + r.orders + ' orders.';
+      this.setState({ resetBusy: false, resetMsg: msg, resetText: '', armOrders: false }); this.load();
+    } catch (e) { this.setState({ resetBusy: false, resetMsg: 'That did not work. Please check the connection and try again.' }); }
+  }
+  toggle(on, label, onClick) {
+    return html`<button class="press label btn" onClick=${onClick} aria-pressed=${!on} style="background:${on ? '#FFFFFF' : INK};color:${on ? INK : '#FFFFFF'}">${label}</button>`;
+  }
+  resetBox() {
+    const st = this.state;
+    const ready = st.resetText.trim().toUpperCase() === 'RESET';
+    return html`<section class="card" style="gap:12px">
+      <span class="label" style="font-size:12px;color:#8A6A2F">After the rehearsal</span>
+      <h2 class="serif" style="margin:0;font-size:28px;font-weight:500">Reset</h2>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:17px;font-weight:600">Clear all orders</span>
+        <span style="font-size:15px;color:#4A5570">Removes every ticket from the kitchen. Ratings, wishes and game scores stay.</span>
+        <button class="press label" onClick=${() => (st.armOrders ? this.reset('orders') : this.setState({ armOrders: true, resetMsg: '' }))} disabled=${st.resetBusy} style="height:52px;border:2px solid #C2416B;border-radius:6px;background:${st.armOrders ? '#C2416B' : '#FFFFFF'};color:${st.armOrders ? '#FFFFFF' : '#C2416B'};font-size:14px">${st.armOrders ? 'Tap again to clear all orders' : 'Clear all orders'}</button>
+        ${st.armOrders && html`<button onClick=${() => this.setState({ armOrders: false })} style="height:40px;border:0;background:transparent;color:#4A5570;font-size:15px;text-decoration:underline">Cancel</button>`}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(27,34,56,.12);padding-top:12px">
+        <span style="font-size:17px;font-weight:600">Reset the whole party</span>
+        <span style="font-size:15px;color:#4A5570">Removes orders, ratings, wishes and game scores. Type RESET to confirm.</span>
+        <input type="text" value=${st.resetText} onInput=${(e) => this.setState({ resetText: e.target.value })} placeholder="Type RESET" aria-label="Type RESET to confirm" autocapitalize="characters" style="height:52px;border:1.5px solid rgba(27,34,56,.35);border-radius:6px;padding:0 12px;font-size:18px;font-family:inherit" />
+        <button class="press label" onClick=${() => this.reset('all')} disabled=${!ready || st.resetBusy} style="height:52px;border:0;border-radius:6px;background:${ready ? '#C2416B' : '#D8D6D0'};color:${ready ? '#FFFFFF' : '#5B6075'};font-size:14px">${st.resetBusy ? 'Working…' : 'Reset everything'}</button>
+      </div>
+      ${st.resetMsg && html`<span role="status" style="font-size:16px;color:${st.resetMsg.startsWith('Done') ? '#2E7D4F' : '#C2416B'}">${st.resetMsg}</span>`}
+    </section>`;
+  }
+  render() {
+    const st = this.state;
+    if (st.denied) return html`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center">
+      <span class="serif" style="font-style:italic;font-size:44px">Giena's</span>
+      <span style="font-size:20px">This page is for the host only.</span></div>`;
+    const d = st.d;
+    const scores = d ? d.scores : []; const wishes = d ? d.wishes : [];
+    let rank = 0;
+    return html`<div class="wrap">
+      <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:max(18px, env(safe-area-inset-top)) 0 14px;border-bottom:3px double ${INK}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;line-height:1"><span class="serif" style="font-style:italic;font-size:28px">Giena's</span><span class="label" style="font-size:10px;letter-spacing:.45em;margin-top:4px">Deli</span></div>
+          <span style="width:1px;height:38px;background:rgba(27,34,56,.25)"></span>
+          <span class="serif" style="font-size:28px">Host</span>
+        </div>
+        <a class="label" href="board" target="_blank" rel="noopener" style="height:44px;display:flex;align-items:center;padding:0 12px;border:1.5px solid ${INK};border-radius:6px;color:${INK};text-decoration:none;font-size:12px">Open TV board</a>
+      </header>
+      ${st.offline && html`<div role="alert" style="margin-top:12px;background:#C2416B;color:#FFFFFF;padding:10px 14px;font-size:16px">Connection lost. Retrying…</div>`}
+      <p style="font-size:16px;line-height:1.5;color:#4A5570;margin:16px 0">Only you have this link. Anything you hide disappears from the TV board within a few seconds. Guests aren't told.</p>
+      ${!d ? html`<p style="padding:30px;text-align:center;font-size:18px">Loading…</p>` : html`<div style="display:flex;flex-direction:column;gap:20px">
+        <section class="card">
+          <span class="label" style="font-size:12px;color:#8A6A2F">Sandwich Match</span>
+          <h2 class="serif" style="margin:0;font-size:28px;font-weight:500">Top Chef board</h2>
+          <span style="font-size:15px;color:#4A5570">Hiding a name also hides any new scores under that name.</span>
+          ${scores.length === 0 && html`<span style="font-size:17px;color:#4A5570;font-style:italic;padding:10px 0">No scores yet.</span>`}
+          <div>${scores.map((r) => { if (!r.hidden) rank++; return html`<div key=${r.name} class="row" style="opacity:${r.hidden ? 0.55 : 1}">
+            <span class="serif" style="width:34px;font-size:24px;color:#8A6A2F;text-align:center">${r.hidden ? '·' : rank}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:19px;font-weight:600;word-break:break-word">${r.name}</span>
+              <span style="font-size:14px;color:#4A5570;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px"><span style="white-space:nowrap">${Number(r.best).toLocaleString('en')} pts · ${r.plays} ${r.plays === 1 ? 'game' : 'games'}</span>
+                <span class="tag label" style="background:${r.hidden ? '#F9D6DF' : '#D9E6F1'};color:${INK}">${r.hidden ? 'Hidden' : rank <= 10 ? 'On TV' : 'Below top 10'}</span></span>
+            </span>
+            ${this.toggle(!r.hidden, r.hidden ? 'Show' : 'Hide', () => this.hideName(r))}
+          </div>`; })}</div>
+        </section>
+        <section class="card">
+          <span class="label" style="font-size:12px;color:#8A6A2F">Wish wall</span>
+          <h2 class="serif" style="margin:0;font-size:28px;font-weight:500">Birthday wishes</h2>
+          ${wishes.length === 0 && html`<span style="font-size:17px;color:#4A5570;font-style:italic;padding:10px 0">No wishes yet.</span>`}
+          <div>${wishes.map((w) => html`<div key=${w.id} class="row" style="opacity:${w.hidden ? 0.55 : 1}">
+            <span style="flex:1;min-width:0;font-size:17px;line-height:1.45;word-break:break-word"><b>${w.name || 'A guest'}</b>: ${w.message}
+              ${w.hidden && html` <span class="tag label" style="background:#F9D6DF">Hidden</span>`}</span>
+            ${this.toggle(!w.hidden, w.hidden ? 'Show' : 'Hide', () => this.hideWish(w))}
+          </div>`)}</div>
+        </section>
+        ${this.resetBox()}
+      </div>`}
+    </div>`;
+  }
+}
+render(html`<${Host} />`, document.getElementById('app'));
+</script>
+</body>
+</html>
