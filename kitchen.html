@@ -27,7 +27,7 @@ button:focus-visible{outline:3px solid #8A6A2F;outline-offset:2px}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;padding:16px 20px 40px;align-items:start}
 .flash{animation:flash 1.2s ease 3}
 @keyframes flash{50%{background:#E8D49A}}
-.sent{position:fixed;left:50%;bottom:28px;z-index:30;display:flex;align-items:center;gap:14px;padding:14px 22px 14px 14px;background:#FFFFFF;border:2px solid #1B2238;border-radius:999px;box-shadow:0 14px 34px rgba(27,34,56,.25);transform:translateX(-50%);animation:sentIn .5s cubic-bezier(.2,1.5,.4,1) both,sentOut .45s ease-in 2.7s forwards}
+.sent{position:fixed;left:50%;bottom:28px;z-index:30;display:flex;align-items:center;gap:14px;width:max-content;max-width:calc(100vw - 32px);padding:14px 22px 14px 14px;background:#FFFFFF;border:2px solid #1B2238;border-radius:22px;box-shadow:0 14px 34px rgba(27,34,56,.25);transform:translateX(-50%);animation:sentIn .5s cubic-bezier(.2,1.5,.4,1) both,sentOut .45s ease-in 2.7s forwards}
 @keyframes sentIn{from{opacity:0;transform:translate(-50%,40px) scale(.8)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
 @keyframes sentOut{to{opacity:0;transform:translate(-50%,20px) scale(.95)}}
 .sent-ic{width:52px;height:52px;flex:none;border-radius:50%;background:#FFE9A8;display:flex;align-items:center;justify-content:center;animation:sentFly 1.1s cubic-bezier(.5,-.4,.6,1) .55s both}
