@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#121828">
-<title>Top Chef · Giena's Deli</title>
+<title>Wishes for Giena · Giena's Deli</title>
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,22 +12,37 @@
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{background:#121828;color:#F6F1E7;font-family:Jost,'Sarabun',system-ui,sans-serif;overflow-x:hidden}
+body{background:#121828;color:#F6F1E7;font-family:Jost,'Sarabun',system-ui,sans-serif;overflow:hidden}
 .serif{font-family:'Bodoni Moda','Noto Serif Thai',Didot,serif}
 .label{font-weight:500;letter-spacing:.2em;text-transform:uppercase}
-.glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 60% 40% at 50% 0%, rgba(241,226,179,.16), rgba(18,24,40,0) 70%)}
+.glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 55% at 50% 42%, rgba(241,226,179,.13), rgba(18,24,40,0) 70%)}
 .bulb{width:12px;height:12px;border-radius:50%;box-shadow:0 0 12px rgba(232,212,154,.8);animation:twinkle 1.6s ease-in-out infinite}
 @keyframes twinkle{0%,100%{opacity:1}50%{opacity:.3}}
-.grid{display:grid;grid-template-columns:1fr 1.25fr;gap:2.2vw;padding:0 3vw 3vw}
-@media (max-width: 900px){.grid{grid-template-columns:1fr}}
-.panel{border:1px solid rgba(246,241,231,.18);padding:clamp(16px,2vw,32px);display:flex;flex-direction:column;gap:clamp(10px,1.2vw,18px);min-height:0}
-.row{display:flex;align-items:baseline;gap:14px;padding:clamp(6px,.7vw,12px) 0;border-bottom:1px solid rgba(246,241,231,.1)}
-.wish{animation:wish .8s cubic-bezier(.2,.8,.2,1) both}
-@keyframes wish{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.stage{position:relative;flex:1;min-height:0;margin:0 4vw;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.frame{position:absolute;inset:0;border:1px solid rgba(232,212,154,.35);pointer-events:none}
+.frame:before{content:"";position:absolute;inset:10px;border:1px solid rgba(232,212,154,.14)}
+.feat{animation:featIn 1s cubic-bezier(.2,.9,.25,1) both}
+@keyframes featIn{from{opacity:0;transform:translateY(24px) scale(.98);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+.newtag{animation:newtag 1.2s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes newtag{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+.shimmer{background:linear-gradient(100deg,#F6F1E7 35%,#FFF4CC 50%,#F6F1E7 65%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 2.4s ease 0.6s 2}
+@keyframes shim{from{background-position:100% 0}to{background-position:-50% 0}}
+.burst{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.burst i{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border-radius:50%;opacity:0;animation:burst 1.4s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes burst{0%{opacity:0;transform:rotate(var(--a)) translateY(0) scale(.5)}12%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(var(--r)) scale(1)}}
+.ticker{position:relative;overflow:hidden;margin:1.4vw 4vw 0;-webkit-mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.track{display:flex;gap:1.6vw;width:max-content;animation:tick linear infinite}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.chip{flex:none;max-width:34vw;padding:.7vw 1.3vw;border:1px solid rgba(246,241,231,.16);background:rgba(246,241,231,.04);display:flex;align-items:baseline;gap:.8vw;white-space:nowrap}
+.chef{display:flex;align-items:center;gap:1.4vw;padding:1.3vw 4vw 1.8vw}
+.pod{flex:1;min-width:0;display:flex;align-items:center;gap:.9vw;padding:.8vw 1.2vw;border:1px solid rgba(246,241,231,.14)}
+.pod.first{border-color:rgba(232,212,154,.6);background:rgba(232,212,154,.08)}
 .newrow{animation:hl 2.4s ease}
-@keyframes hl{0%,40%{background:rgba(232,212,154,.25)}100%{background:transparent}}
+@keyframes hl{0%,40%{background:rgba(232,212,154,.28)}100%{}}
 .conf{position:fixed;top:-24px;border-radius:2px;animation:conf linear forwards;z-index:9}
 @keyframes conf{to{transform:translateY(110vh) rotate(720deg)}}
+.fs{position:fixed;right:18px;top:6px;z-index:20;height:40px;padding:0 16px;border:1px solid rgba(246,241,231,.35);background:rgba(18,24,40,.7);color:#F6F1E7;font:500 14px Jost,sans-serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:opacity .5s}
+@media (prefers-reduced-motion: reduce){.track{animation:none}.feat,.newtag,.shimmer,.burst i{animation:none}}
 </style>
 </head>
 <body>
@@ -38,12 +53,31 @@ import { h, render, Component } from './vendor/preact.js';
 import htm from './vendor/htm.js';
 import { rpc } from './config.js';
 const html = htm.bind(h);
-const TAGS = ['Perfectly toasted', 'Generous fillings', 'Great sauce', 'Beautifully made'];
-const STAR = 'M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z';
+const GOLD = '#E8D49A';
+const TINTS = ['#E8D49A', '#D9E6F1', '#EFD3D7', '#FFFFFF'];
+const key = (w) => w.created_at + '|' + w.name;
+const isThai = (s) => /[฀-๿]/.test(s || '');
+const fit = (len) => (len <= 28 ? 'clamp(40px,6.2vw,132px)' : len <= 60 ? 'clamp(34px,4.8vw,104px)' : len <= 120 ? 'clamp(28px,3.6vw,78px)' : len <= 200 ? 'clamp(24px,2.8vw,60px)' : 'clamp(20px,2.3vw,48px)');
 
 class Board extends Component {
-  constructor() { super(); this.state = { d: null, page: 0, offline: false, conf: 0, newWish: null }; this.leader = undefined; this.wishTop = undefined; }
-  componentDidMount() { this.load(); this.t = setInterval(() => this.load(), 5000); this.p = setInterval(() => this.setState({ page: this.state.page + 1 }), 8000); }
+  constructor() {
+    super();
+    this.state = { d: null, offline: false, conf: 0, feat: null, featNew: false, featN: 0, fsHint: true };
+    this.leader = undefined; this.seen = null; this.queue = []; this.idx = 0; this.until = 0;
+  }
+  componentDidMount() {
+    this.load(); this.t = setInterval(() => this.load(), 2000);
+    this.k = setInterval(() => this.tick(), 500);
+    this.hideFs = setTimeout(() => this.setState({ fsHint: false }), 8000);
+    document.addEventListener('mousemove', () => { this.setState({ fsHint: true }); clearTimeout(this.hideFs); this.hideFs = setTimeout(() => this.setState({ fsHint: false }), 4000); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.wantLock) this.lock(); });
+  }
+  async lock() { try { if (navigator.wakeLock) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  async goFull() {
+    this.wantLock = true; this.lock();
+    try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); } catch (e) {}
+    this.setState({ fsHint: false });
+  }
   async load() {
     try {
       const d = await rpc('board_data');
@@ -51,77 +85,112 @@ class Board extends Component {
       let conf = this.state.conf;
       if (this.leader !== undefined && lead && lead !== this.leader) conf++;
       this.leader = lead;
-      const top = d.wishes[0] ? d.wishes[0].created_at : null;
-      let page = this.state.page;
-      if (this.wishTop !== undefined && top && top !== this.wishTop) page = 0;
-      this.wishTop = top;
-      this.setState({ d, offline: false, conf, page });
+      const ws = d.wishes || [];
+      if (this.seen === null) { this.seen = new Set(ws.map(key)); }
+      else {
+        const fresh = ws.filter((w) => !this.seen.has(key(w))).reverse();
+        fresh.forEach((w) => { this.seen.add(key(w)); this.queue.push(w); });
+        if (fresh.length && !this.state.featNew) this.until = 0;
+      }
+      this.setState({ d, offline: false, conf }, () => this.tick());
     } catch (e) { this.setState({ offline: true }); }
   }
-  stars(avg, size) {
-    return html`<div style="display:flex;gap:6px">${[1, 2, 3, 4, 5].map((n) => {
-      const fill = Math.max(0, Math.min(1, (avg || 0) - (n - 1)));
-      return html`<svg width=${size} height=${size} viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id=${'g' + n + size}><stop offset=${fill * 100 + '%'} stop-color="#E8D49A"></stop><stop offset=${fill * 100 + '%'} stop-color="transparent"></stop></linearGradient></defs><path d=${STAR} fill=${'url(#g' + n + size + ')'} stroke="#E8D49A" stroke-width="1"></path></svg>`;
-    })}</div>`;
+  tick() {
+    const d = this.state.d; if (!d) return;
+    const ws = d.wishes || [];
+    const cur = this.state.feat;
+    const gone = cur && !ws.some((w) => key(w) === key(cur));
+    if (Date.now() < this.until && !gone) return;
+    if (this.queue.length) {
+      const w = this.queue.shift();
+      if (!ws.some((x) => key(x) === key(w))) return;
+      this.until = Date.now() + 9000;
+      this.setState({ feat: w, featNew: true, featN: this.state.featN + 1 });
+      return;
+    }
+    if (!ws.length) { if (cur) this.setState({ feat: null }); return; }
+    if (ws.length === 1 && cur && !gone && key(cur) === key(ws[0])) { this.until = Date.now() + 9000; if (this.state.featNew) this.setState({ featNew: false }); return; }
+    this.idx = cur && !gone ? (this.idx + 1) % ws.length : 0;
+    const w = ws[this.idx];
+    this.until = Date.now() + Math.min(14000, 7000 + (w.message || '').length * 40);
+    this.setState({ feat: w, featNew: false, featN: this.state.featN + 1 });
   }
   render() {
-    const { d, page, offline, conf } = this.state;
-    const scores = d ? d.scores : [];
+    const { d, offline, conf, feat, featNew, featN, fsHint } = this.state;
+    const scores = d ? d.scores.slice(0, 5) : [];
     const wishes = d ? d.wishes : [];
-    const per = 4;
-    const pages = Math.max(1, Math.ceil(wishes.length / per));
-    const pg = page % pages;
-    const shown = wishes.slice(pg * per, pg * per + per);
-    const maxD = d && d.dist ? Math.max(1, ...d.dist) : 1;
-    const COLS = ['#E8D49A', '#D9E6F1', '#EFD3D7', '#F6F1E7'];
-    return html`<div style="position:relative;min-height:100vh;display:flex;flex-direction:column">
-      <div style="display:flex;justify-content:space-between;padding:18px 3vw 0">${Array.from({ length: 15 }, (_, i) => html`<span class="bulb" style="background:${['#E8D49A', '#D9E6F1', '#EFD3D7'][i % 3]};animation-delay:${i * 0.15}s"></span>`)}</div>
-      <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:2vw 3vw;flex-wrap:wrap">
+    const others = feat ? wishes.filter((w) => key(w) !== key(feat)) : wishes;
+    const loop = others.length >= 3 ? [...others, ...others] : others;
+    const moving = others.length >= 3;
+    const th = feat && isThai(feat.message);
+    return html`<div style="position:relative;height:100vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;padding:16px 3vw 0">${Array.from({ length: 17 }, (_, i) => html`<span class="bulb" style="background:${TINTS[i % 3]};animation-delay:${i * 0.15}s"></span>`)}</div>
+      <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:1.2vw 4vw 1.4vw">
         <div style="display:flex;align-items:center;gap:22px">
           <div style="display:flex;flex-direction:column;align-items:center;line-height:1">
-            <span class="serif" style="font-style:italic;font-size:clamp(40px,4.6vw,84px)">Giena's</span>
-            <span class="label" style="font-size:clamp(11px,.9vw,16px);letter-spacing:.5em;margin-top:8px;color:#E8D49A">Deli · Est. 1999</span>
+            <span class="serif" style="font-style:italic;font-size:clamp(34px,3.6vw,68px)">Giena's</span>
+            <span class="label" style="font-size:clamp(10px,.8vw,14px);letter-spacing:.5em;margin-top:7px;color:${GOLD}">Deli · Est. 1999</span>
           </div>
-          <span style="width:1px;height:70px;background:rgba(246,241,231,.25)"></span>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <span class="serif" style="font-size:clamp(24px,2.4vw,44px)">Happy 27th, Giena</span>
-            <span style="font-size:clamp(15px,1.2vw,22px);color:rgba(246,241,231,.75)">${d ? d.orders + (d.orders === 1 ? ' sandwich' : ' sandwiches') + ' ordered tonight' : ' '}</span>
+          <span style="width:1px;height:58px;background:rgba(246,241,231,.25)"></span>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span class="serif" style="font-size:clamp(22px,2.1vw,40px)">Happy 27th, Giena</span>
+            <span style="font-size:clamp(14px,1.05vw,20px);color:rgba(246,241,231,.72)">${d ? d.orders + (d.orders === 1 ? ' sandwich' : ' sandwiches') + ' ordered tonight · ' + wishes.length + (wishes.length === 1 ? ' wish' : ' wishes') : ' '}</span>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:16px">
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right">
-            <span class="label" style="font-size:clamp(12px,1vw,18px);color:#E8D49A">Scan to order</span>
-            <span style="font-size:clamp(14px,1.1vw,20px);color:rgba(246,241,231,.85);font-family:Sarabun,sans-serif">สแกนสั่งได้เลย · Scan & bestellen</span>
-            <span style="font-size:clamp(13px,1vw,18px);color:rgba(246,241,231,.65)">giena-deli.vercel.app</span>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right">
+            <span class="label" style="font-size:clamp(11px,.9vw,16px);color:${GOLD}">Order · Wish · Play</span>
+            <span style="font-size:clamp(13px,1vw,19px);color:rgba(246,241,231,.85);font-family:Sarabun,sans-serif">สแกนสั่งได้เลย · Scan & bestellen</span>
+            <span style="font-size:clamp(12px,.9vw,17px);color:rgba(246,241,231,.6)">giena-deli.vercel.app</span>
           </div>
-          <img src="qr/guest.svg" alt="QR code to order" onError=${(e) => { e.target.style.display = 'none'; }} style="width:clamp(90px,8vw,150px);height:auto;background:#FFFFFF;padding:8px" />
+          <img src="qr/guest.svg" alt="QR code to order" onError=${(e) => { e.target.style.display = 'none'; }} style="width:clamp(80px,7vw,132px);height:auto;background:#FFFFFF;padding:7px" />
         </div>
       </header>
-      ${offline && html`<div style="margin:0 3vw 12px;padding:8px 14px;background:rgba(194,65,107,.3);font-size:16px">Reconnecting…</div>`}
-      <div class="grid" style="flex:1">
-        <section class="panel">
-          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Sandwich Match</span>
-          <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">Top Chef</h2>
-          ${scores.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">No scores yet. Who will be the first Top Chef?</p>`}
-          <div>${scores.map((r, i) => html`<div key=${r.name + r.layers} class=${'row ' + (i === 0 ? 'newrow' : '')}>
-            <span class="serif" style="width:2ch;font-size:clamp(22px,2vw,38px);color:${i < 3 ? '#E8D49A' : 'rgba(246,241,231,.5)'}">${i + 1}</span>
-            <span class="serif" style="flex:1;min-width:0;font-size:clamp(20px,1.7vw,32px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i === 0 ? '♛ ' : ''}${r.name}</span>
-            <span class="serif" style="font-size:clamp(22px,2vw,38px);color:#E8D49A">${Number(r.layers).toLocaleString('en')}</span>
-            <span style="font-size:clamp(12px,.9vw,16px);color:rgba(246,241,231,.6)">pts</span>
-          </div>`)}</div>
-        </section>
-        <section class="panel">
-          <span class="label" style="font-size:clamp(12px,.9vw,16px);color:#E8D49A">Wish wall</span>
-          <h2 class="serif" style="margin:0;font-weight:500;font-size:clamp(30px,2.8vw,52px)">For Giena, with love</h2>
-          ${wishes.length === 0 && html`<p style="font-size:clamp(16px,1.3vw,24px);color:rgba(246,241,231,.7);font-style:italic">Birthday wishes will pop up here.</p>`}
-          <div style="display:flex;flex-direction:column;gap:14px">${shown.map((w, i) => html`<div key=${pg + '-' + i + w.created_at} class="wish" style="animation-delay:${i * 0.12}s;border-left:3px solid ${COLS[i % 4]};padding:6px 0 6px 18px">
-            <p class="serif" style="margin:0;font-style:italic;font-size:clamp(20px,1.7vw,32px);line-height:1.35;word-break:break-word">${w.message}</p>
-            ${w.name && html`<span class="label" style="display:block;margin-top:8px;font-size:clamp(11px,.85vw,15px);color:rgba(246,241,231,.65)">${w.name}</span>`}
-          </div>`)}</div>
-          ${pages > 1 && html`<div style="display:flex;gap:6px;margin-top:auto">${Array.from({ length: pages }, (_, i) => html`<span style="width:${i === pg ? 22 : 8}px;height:4px;background:${i === pg ? '#E8D49A' : 'rgba(246,241,231,.3)'};transition:width .4s"></span>`)}</div>`}
-        </section>
-      </div>
-      ${conf > 0 && html`<div key=${'c' + conf} aria-hidden="true">${Array.from({ length: 50 }, (_, i) => html`<span class="conf" style="left:${(i * 37) % 100}%;width:${8 + (i % 3) * 4}px;height:${14 + (i % 4) * 4}px;background:${['#E8D49A', '#D9E6F1', '#EFD3D7', '#F6F1E7'][i % 4]};animation-delay:${((i * 7) % 10) / 8}s;animation-duration:${3 + ((i * 13) % 10) / 4}s"></span>`)}</div>`}
+      ${offline && html`<div style="margin:0 4vw 10px;padding:8px 14px;background:rgba(194,65,107,.3);font-size:16px">Reconnecting…</div>`}
+
+      <section class="stage" aria-live="polite">
+        <div class="frame" aria-hidden="true"></div>
+        <span class="label" style="position:absolute;top:-0.7em;left:50%;transform:translateX(-50%);padding:0 18px;background:#121828;font-size:clamp(12px,1vw,18px);color:${GOLD}">Wishes for Giena</span>
+        ${!feat && html`<div class="feat" style="padding:3vw">
+          <p class="serif" style="margin:0;font-style:italic;font-size:clamp(34px,4.4vw,92px);line-height:1.2">Send Giena a birthday wish</p>
+          <p style="margin:1.4vw 0 0;font-size:clamp(16px,1.5vw,30px);color:rgba(246,241,231,.75)">Scan the code, order your sandwich, and your wish will appear right here.</p>
+        </div>`}
+        ${feat && html`<div key=${'f' + featN} class="feat" style="position:relative;max-width:82vw;padding:2.4vw 4vw;display:flex;flex-direction:column;align-items:center">
+          ${featNew && html`<span class="label newtag" style="margin-bottom:1.4vw;padding:.45vw 1.1vw;background:${GOLD};color:#121828;font-size:clamp(12px,1vw,18px)">New wish</span>`}
+          ${featNew && html`<div class="burst" aria-hidden="true">${Array.from({ length: 18 }, (_, i) => html`<i style="--a:${i * 20}deg;--r:${-(18 + (i % 3) * 7)}vw;background:${TINTS[i % 4]};box-shadow:0 0 12px ${TINTS[i % 4]};animation-delay:${(i % 3) * 0.08}s"></i>`)}</div>`}
+          <span class="serif" aria-hidden="true" style="font-size:clamp(60px,7vw,150px);line-height:.6;height:.42em;color:${GOLD};opacity:.8">“</span>
+          <p class=${'serif ' + (featNew ? 'shimmer' : '')} style="margin:.6vw 0 0;font-style:${th ? 'normal' : 'italic'};font-weight:500;font-size:${fit((feat.message || '').length)};line-height:${th ? 1.4 : 1.18};word-break:break-word;text-wrap:balance">${feat.message}</p>
+          <span style="margin-top:1.8vw;display:flex;align-items:center;gap:1vw">
+            <span style="width:3vw;height:1px;background:${GOLD}"></span>
+            <span class="label" style="font-size:clamp(14px,1.3vw,26px);color:${GOLD}">${feat.name || 'A guest'}</span>
+            <span style="width:3vw;height:1px;background:${GOLD}"></span>
+          </span>
+        </div>`}
+      </section>
+
+      ${loop.length > 0 && html`<div class="ticker" aria-hidden="true">
+        <div class="track" style=${moving ? `animation-duration:${Math.max(30, others.length * 9)}s` : 'animation:none;margin:0 auto'}>${loop.map((w, i) => html`<div key=${'t' + i} class="chip">
+          <span class="serif" style="font-style:${isThai(w.message) ? 'normal' : 'italic'};font-size:clamp(16px,1.35vw,26px);overflow:hidden;text-overflow:ellipsis">${w.message}</span>
+          <span class="label" style="flex:none;font-size:clamp(10px,.75vw,14px);color:rgba(246,241,231,.6)">${w.name || 'A guest'}</span>
+        </div>`)}</div>
+      </div>`}
+
+      <footer class="chef">
+        <div style="flex:none;display:flex;flex-direction:column;line-height:1.1;margin-right:.6vw">
+          <span class="label" style="font-size:clamp(10px,.8vw,14px);color:${GOLD}">Sandwich Match</span>
+          <span class="serif" style="font-size:clamp(24px,2.2vw,42px)">Top Chef</span>
+        </div>
+        ${scores.length === 0 && html`<span style="font-size:clamp(15px,1.2vw,22px);color:rgba(246,241,231,.7);font-style:italic">Play while you wait. The best scores show up here.</span>`}
+        ${scores.map((r, i) => html`<div key=${r.name + r.layers} class=${'pod ' + (i === 0 ? 'first newrow' : '')}>
+          <span class="serif" style="font-size:clamp(20px,1.8vw,34px);color:${i < 3 ? GOLD : 'rgba(246,241,231,.5)'}">${i === 0 ? '♛' : i + 1}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.15">
+            <span class="serif" style="font-size:clamp(16px,1.4vw,28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span>
+            <span style="font-size:clamp(13px,1vw,19px);color:${GOLD}">${Number(r.layers).toLocaleString('en')} pts</span>
+          </span>
+        </div>`)}
+      </footer>
+      <button class="fs" onClick=${() => this.goFull()} style="opacity:${fsHint ? 1 : 0}">Full screen</button>
+      ${conf > 0 && html`<div key=${'c' + conf} aria-hidden="true">${Array.from({ length: 50 }, (_, i) => html`<span class="conf" style="left:${(i * 37) % 100}%;width:${8 + (i % 3) * 4}px;height:${14 + (i % 4) * 4}px;background:${TINTS[i % 4]};animation-delay:${((i * 7) % 10) / 8}s;animation-duration:${3 + ((i * 13) % 10) / 4}s"></span>`)}</div>`}
     </div>`;
   }
 }

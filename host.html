@@ -39,7 +39,7 @@ const INK = '#1B2238';
 const KEY = new URLSearchParams(location.hash.slice(1)).get('k') || '';
 
 class Host extends Component {
-  constructor() { super(); this.state = { d: null, denied: false, offline: false, resetText: '', armOrders: false, resetMsg: '', resetBusy: false }; }
+  constructor() { super(); this.state = { d: null, denied: false, offline: false, arm: null, note: '', resetText: '', armOrders: false, resetMsg: '', resetBusy: false }; }
   componentDidMount() { this.load(); this.timer = setInterval(() => this.load(), 5000); }
   async load() {
     if (!KEY) { this.setState({ denied: true }); return; }
@@ -50,6 +50,27 @@ class Host extends Component {
     const d = this.state.d;
     this.setState({ d: { ...d, scores: d.scores.map((x) => (x.name === r.name ? { ...x, hidden: !r.hidden } : x)) } });
     try { await rpc('host_hide_name', { p_key: KEY, p_name: r.name, p_hidden: !r.hidden }); } catch (e) { this.load(); }
+  }
+  async del(kind, item) {
+    const id = kind + ':' + (kind === 'name' ? item.name : item.id);
+    if (this.state.arm !== id) { this.setState({ arm: id }); clearTimeout(this.armT); this.armT = setTimeout(() => this.setState({ arm: null }), 4000); return; }
+    const d = this.state.d;
+    this.setState({ arm: null, note: '', d: kind === 'name' ? { ...d, scores: d.scores.filter((x) => x.name !== item.name) } : { ...d, wishes: d.wishes.filter((x) => x.id !== item.id) } });
+    try {
+      if (kind === 'name') await rpc('host_delete_name', { p_key: KEY, p_name: item.name });
+      else await rpc('host_delete_wish', { p_key: KEY, p_id: item.id });
+    } catch (e) {
+      try {
+        if (kind === 'name') await rpc('host_hide_name', { p_key: KEY, p_name: item.name, p_hidden: true });
+        else await rpc('host_hide_wish', { p_key: KEY, p_id: item.id, p_hidden: true });
+        this.setState({ note: 'Delete is not switched on yet, so it was hidden from the TV instead.' });
+      } catch (e2) { this.setState({ note: 'That did not work. Please check the connection.' }); }
+      this.load();
+    }
+  }
+  delBtn(kind, item) {
+    const on = this.state.arm === kind + ':' + (kind === 'name' ? item.name : item.id);
+    return html`<button class="press label btn" onClick=${() => this.del(kind, item)} style="border-color:#C2416B;background:${on ? '#C2416B' : '#FFFFFF'};color:${on ? '#FFFFFF' : '#C2416B'};min-width:${on ? 112 : 84}px">${on ? 'Tap to delete' : 'Delete'}</button>`;
   }
   async hideWish(w) {
     const d = this.state.d;
@@ -107,7 +128,8 @@ class Host extends Component {
         <a class="label" href="board" target="_blank" rel="noopener" style="height:44px;display:flex;align-items:center;padding:0 12px;border:1.5px solid ${INK};border-radius:6px;color:${INK};text-decoration:none;font-size:12px">Open TV board</a>
       </header>
       ${st.offline && html`<div role="alert" style="margin-top:12px;background:#C2416B;color:#FFFFFF;padding:10px 14px;font-size:16px">Connection lost. Retrying…</div>`}
-      <p style="font-size:16px;line-height:1.5;color:#4A5570;margin:16px 0">Only you have this link. Anything you hide disappears from the TV board within a few seconds. Guests aren't told.</p>
+      ${st.note && html`<div role="status" style="margin-top:12px;background:#FFE9A8;padding:10px 14px;font-size:16px">${st.note}</div>`}
+      <p style="font-size:16px;line-height:1.5;color:#4A5570;margin:16px 0">Only you have this link. Hide keeps it, Delete removes it for good. Either way it leaves the TV board within a few seconds. Guests aren't told.</p>
       ${!d ? html`<p style="padding:30px;text-align:center;font-size:18px">Loading…</p>` : html`<div style="display:flex;flex-direction:column;gap:20px">
         <section class="card">
           <span class="label" style="font-size:12px;color:#8A6A2F">Sandwich Match</span>
@@ -121,7 +143,7 @@ class Host extends Component {
               <span style="font-size:14px;color:#4A5570;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px"><span style="white-space:nowrap">${Number(r.best).toLocaleString('en')} pts · ${r.plays} ${r.plays === 1 ? 'game' : 'games'}</span>
                 <span class="tag label" style="background:${r.hidden ? '#F9D6DF' : '#D9E6F1'};color:${INK}">${r.hidden ? 'Hidden' : rank <= 10 ? 'On TV' : 'Below top 10'}</span></span>
             </span>
-            ${this.toggle(!r.hidden, r.hidden ? 'Show' : 'Hide', () => this.hideName(r))}
+            <span style="display:flex;flex-direction:column;gap:6px">${this.toggle(!r.hidden, r.hidden ? 'Show' : 'Hide', () => this.hideName(r))}${this.delBtn('name', r)}</span>
           </div>`; })}</div>
         </section>
         <section class="card">
@@ -131,7 +153,7 @@ class Host extends Component {
           <div>${wishes.map((w) => html`<div key=${w.id} class="row" style="opacity:${w.hidden ? 0.55 : 1}">
             <span style="flex:1;min-width:0;font-size:17px;line-height:1.45;word-break:break-word"><b>${w.name || 'A guest'}</b>: ${w.message}
               ${w.hidden && html` <span class="tag label" style="background:#F9D6DF">Hidden</span>`}</span>
-            ${this.toggle(!w.hidden, w.hidden ? 'Show' : 'Hide', () => this.hideWish(w))}
+            <span style="display:flex;flex-direction:column;gap:6px">${this.toggle(!w.hidden, w.hidden ? 'Show' : 'Hide', () => this.hideWish(w))}${this.delBtn('wish', w)}</span>
           </div>`)}</div>
         </section>
         ${this.resetBox()}

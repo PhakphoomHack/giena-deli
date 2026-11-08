@@ -28,7 +28,7 @@ const SAUCES = [
 ];
 const ROT = [[0], [-4, 5], [-6, 3, 8]];
 const TILE_COL = { brisket: ['#F28BA8', '#F7C4D1'], avocado: ['#7CCB86', '#BFE5C2'], onion: ['#F6A86B', '#F9C9A6'], cheese: ['#F2BE3A', '#FFE08A'], pickle: ['#A98BE0', '#D3C8F2'], toast: ['#8DB6E0', '#C7DAEE'], pesto: ['#6E9440', '#E9ECE4'], gold: ['#E9B92C', '#F6D46A'] };
-const tileSrc = (t) => 'img/t-' + t + (t === 'pesto' ? '-2' : '') + '.webp';
+const tileSrc = (t) => 'img/s-' + t + '.webp';
 const STATUS_IDX = { new: 0, making: 1, ready: 2, collected: 2 };
 
 const check = (size, sw) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=${sw} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>`;
@@ -79,7 +79,7 @@ class App extends Component {
       store(PREF_KEY, { lang: this.state.lang, big: this.state.big, sound: this.state.sound });
     }
     if (prevState.screen !== this.state.screen) window.scrollTo(0, 0);
-    if (prevState.screen === 'game' && this.state.screen !== 'game') this.clearHint();
+    if (prevState.screen === 'game' && this.state.screen !== 'game') { this.clearHint(); clearInterval(this.hopT); }
   }
   componentWillUnmount() { this.clearTimers(); clearInterval(this.poll); this.clearHint(); }
   syncChrome() {
@@ -364,7 +364,7 @@ class App extends Component {
   newGame() {
     this.gameToken = (this.gameToken || 0) + 1;
     this.busy = false;
-    return { phase: 'intro', board: M.newBoard(), moves: MOVES, score: 0, sel: -1, fall: {}, pops: [], fx: [], fxN: 0, floats: [], word: '', wordN: 0, hint: null, bad: null, badN: 0, newBest: false };
+    return { phase: 'intro', board: M.newBoard(), moves: MOVES, score: 0, sel: -1, fall: {}, pops: [], fx: [], fxN: 0, floats: [], word: '', wordN: 0, hint: null, bad: null, badN: 0, newBest: false, mood: 'idle', moodN: 0, say: '', hop: null };
   }
   startGame() {
     this.play('tap');
@@ -375,7 +375,17 @@ class App extends Component {
   }
   beginPlay() {
     this.play('tap');
-    this.setState({ game: { ...this.state.game, phase: 'play' } }, () => this.armHint());
+    const L = DICT[this.state.lang];
+    this.setState({ game: { ...this.state.game, phase: 'play', mood: 'happy', moodN: 1, say: L.g.hi } }, () => { this.armHint(); this.startHop(); });
+  }
+  startHop() {
+    clearInterval(this.hopT);
+    this.hopT = setInterval(() => {
+      const G = this.state.game;
+      if (!G || G.phase !== 'play' || this.busy || this.state.screen !== 'game') return;
+      const t = G.board[Math.floor(Math.random() * G.board.length)];
+      if (t) this.setState({ game: { ...G, hop: t.id } });
+    }, 1900);
   }
   gset(patch) { return new Promise((res) => this.setState({ game: { ...this.state.game, ...patch } }, res)); }
   wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -385,7 +395,7 @@ class App extends Component {
     this.hintTimer = setTimeout(() => {
       const G = this.state.game;
       if (!G || G.phase !== 'play' || this.busy || this.state.screen !== 'game') return;
-      this.gset({ hint: M.findHint(G.board) });
+      this.gset({ hint: M.findHint(G.board), mood: 'idle', moodN: G.moodN + 1, say: DICT[this.state.lang].g.hintSay });
     }, 5000);
   }
   cellAt(e) {
@@ -443,7 +453,7 @@ class App extends Component {
     if (tok !== this.gameToken) return;
     if (!M.isValidSwap(G0.board, a, b)) {
       this.play('unpop'); this.buzz([20, 40, 20]);
-      await this.gset({ board: G0.board, bad: [a, b], badN: G0.badN + 1 });
+      await this.gset({ board: G0.board, bad: [a, b], badN: G0.badN + 1, mood: 'oops', moodN: G0.moodN + 1, say: L.g.oops });
       await this.wait(260);
       if (tok !== this.gameToken) return;
       await this.gset({ bad: null });
@@ -454,14 +464,16 @@ class App extends Component {
     while (res) {
       const g = this.state.game;
       const per = Math.round(res.points / Math.max(1, res.pops.length));
-      const floats = res.pops.map((p) => ({ k: 'f' + (this.fk = (this.fk || 0) + 1), r: p.r, c: p.c, text: '+' + per }));
+      const floats = res.pops.map((p) => ({ k: 'f' + (this.fk = (this.fk || 0) + 1), r: p.r, c: p.c, t: p.t, text: '+' + per }));
       const madeGold = res.created.some((t) => t.sp === 'gold');
       const madeSpecial = res.created.length > 0;
+      const goldHit = res.effects.some((x) => x.kind === 'gold');
       let word = '';
-      if (res.effects.some((x) => x.kind === 'gold')) word = L.g.goldWord;
+      if (goldHit) word = L.g.goldWord;
       else if (madeGold) word = L.g.goldMade;
-      else if (cascade >= 2) word = L.g.words[Math.min(cascade - 2, L.g.words.length - 1)];
-      else if (madeSpecial) word = L.g.specialWord;
+      else if (cascade >= 3) word = L.g.words[Math.min(cascade - 2, L.g.words.length - 1)];
+      const say = goldHit || madeGold ? (madeGold ? L.g.goldMade : L.g.goldWord) : cascade >= 2 ? L.g.words[Math.min(cascade - 2, L.g.words.length - 1)] : madeSpecial ? L.g.specialWord : L.g.yum[Math.floor(Math.random() * L.g.yum.length)];
+      const mood = goldHit || madeGold || cascade >= 2 ? 'wow' : 'happy';
       this.play('match', cascade);
       if (madeSpecial) this.play('sparkle');
       if (res.effects.some((x) => x.kind === 'line')) this.play('whoosh');
@@ -473,7 +485,8 @@ class App extends Component {
         pops: res.cleared.map(({ i, tile }) => ({ i, id: tile.id, t: tile.t, sp: tile.sp })),
         fx: res.effects, fxN: g.fxN + 1, floats,
         score: g.score + res.points,
-        word, wordN: word ? g.wordN + 1 : g.wordN
+        word, wordN: word ? g.wordN + 1 : g.wordN,
+        mood, moodN: g.moodN + 1, say
       });
       await this.wait(250);
       if (tok !== this.gameToken) return;
@@ -485,7 +498,8 @@ class App extends Component {
       res = M.resolve(board, null, cascade);
     }
     const moves = this.state.game.moves - 1;
-    await this.gset({ moves, fall: {} });
+    const gm = this.state.game;
+    await this.gset(moves === 5 ? { moves, fall: {}, mood: 'wow', moodN: gm.moodN + 1, say: L.g.low } : { moves, fall: {} });
     if (moves <= 0) { await this.wait(450); if (tok !== this.gameToken) return; this.busy = false; this.endGame(); return; }
     if (!M.findHint(board)) {
       await this.wait(200);
@@ -503,7 +517,8 @@ class App extends Component {
     if (newBest) { this.best = pts; store(BEST_KEY, pts); }
     this.play(newBest ? 'chime' : 'over');
     if (newBest) setTimeout(() => this.play('hb'), 700);
-    this.setState({ game: { ...G, phase: 'over', newBest, sel: -1, hint: null }, confettiN: this.state.confettiN + (newBest ? 1 : 0), scoreSent: false }, () => {
+    clearInterval(this.hopT);
+    this.setState({ game: { ...G, phase: 'over', newBest, sel: -1, hint: null, mood: 'cheer', moodN: G.moodN + 1 }, confettiN: this.state.confettiN + (newBest ? 1 : 0), scoreSent: false }, () => {
       if (this.state.scoreName.trim() && pts > 0) this.submitScore();
     });
   }
@@ -940,13 +955,49 @@ class App extends Component {
     </div>`;
   }
 
+  mascot(mood, n, size) {
+    const INKc = '#1B2238';
+    const eyes = mood === 'happy' || mood === 'cheer'
+      ? html`<g><path d="M35.5 48.5q4.5-6.5 9 0M55.5 48.5q4.5-6.5 9 0" fill="none" stroke=${INKc} stroke-width="3" stroke-linecap="round"></path></g>`
+      : mood === 'wow'
+        ? html`<g><circle cx="40" cy="46.5" r="5" fill=${INKc}></circle><circle cx="60" cy="46.5" r="5" fill=${INKc}></circle><circle cx="41.8" cy="44.6" r="1.8" fill="#FFFFFF"></circle><circle cx="61.8" cy="44.6" r="1.8" fill="#FFFFFF"></circle></g>`
+        : mood === 'oops'
+          ? html`<g><path d="M36 43.5l7 3.6-7 3.6M64 43.5l-7 3.6 7 3.6" fill="none" stroke=${INKc} stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></g>`
+          : html`<g class="mz-eyes"><ellipse cx="40" cy="47" rx="3.5" ry="4.6" fill=${INKc}></ellipse><ellipse cx="60" cy="47" rx="3.5" ry="4.6" fill=${INKc}></ellipse><circle cx="41.3" cy="45.2" r="1.3" fill="#FFFFFF"></circle><circle cx="61.3" cy="45.2" r="1.3" fill="#FFFFFF"></circle></g>`;
+    const mouth = mood === 'happy' || mood === 'cheer'
+      ? html`<path d="M42.5 54.5q7.5 10 15 0z" fill="#C2416B" stroke=${INKc} stroke-width="2.4" stroke-linejoin="round"></path>`
+      : mood === 'wow'
+        ? html`<ellipse cx="50" cy="57.5" rx="3.8" ry="4.8" fill="#C2416B" stroke=${INKc} stroke-width="2.4"></ellipse>`
+        : mood === 'oops'
+          ? html`<path d="M43.5 58q3.2-3.4 6.5 0t6.5 0" fill="none" stroke=${INKc} stroke-width="2.4" stroke-linecap="round"></path>`
+          : html`<path d="M45 55.5q5 4.6 10 0" fill="none" stroke=${INKc} stroke-width="2.6" stroke-linecap="round"></path>`;
+    return html`<svg class=${'mz mz-' + mood} width=${size} height=${size} viewBox="0 0 100 100" aria-hidden="true">
+      <ellipse cx="50" cy="93" rx="25" ry="4" fill="rgba(27,34,56,.14)"></ellipse>
+      <g class="mz-bob"><g key=${'r' + n} class="mz-react">
+        <rect x="21" y="71" width="58" height="15" rx="7.5" fill="#F2C78A" stroke="#B97D3C" stroke-width="3"></rect>
+        <path d="M23 66L77 66 72 72 66 80 61 72 27 72z" fill="#FFD25A" stroke="#D49A1E" stroke-width="2.2" stroke-linejoin="round"></path>
+        <path d="M19 64q5 6 10 0t10 0 10 0 10 0 10 0 10 0 3 2L81 68 19 68z" fill="#9BD67A" stroke="#5E9E45" stroke-width="2.2" stroke-linejoin="round"></path>
+        <path d="M21.5 63C17 39 30 25.5 50 25.5S83 39 78.5 63z" fill="#F7D9A4" stroke="#B97D3C" stroke-width="3" stroke-linejoin="round"></path>
+        <path d="M27 58c-1.5-14 7-24 23-24" fill="none" stroke="#FFF1D6" stroke-width="3.5" stroke-linecap="round" opacity=".9"></path>
+        <circle cx="34" cy="38" r="1.2" fill="#E9C38A"></circle><circle cx="66" cy="36" r="1.2" fill="#E9C38A"></circle><circle cx="71" cy="49" r="1.1" fill="#E9C38A"></circle>
+        <ellipse cx="31.5" cy="54" rx="5" ry="3.2" fill="#F7A7B8" opacity=".9"></ellipse><ellipse cx="68.5" cy="54" rx="5" ry="3.2" fill="#F7A7B8" opacity=".9"></ellipse>
+        ${eyes}${mouth}
+        <g>
+          <circle cx="38" cy="15" r="8.6" fill="#FFFFFF" stroke="#C9CFDB" stroke-width="2"></circle><circle cx="50" cy="10.5" r="9.6" fill="#FFFFFF" stroke="#C9CFDB" stroke-width="2"></circle><circle cx="62" cy="15" r="8.6" fill="#FFFFFF" stroke="#C9CFDB" stroke-width="2"></circle>
+          <circle cx="38" cy="15" r="7.4" fill="#FFFFFF"></circle><circle cx="50" cy="10.5" r="8.4" fill="#FFFFFF"></circle><circle cx="62" cy="15" r="7.4" fill="#FFFFFF"></circle>
+          <rect x="35" y="18" width="30" height="10" rx="2.5" fill="#FFFFFF" stroke="#C9CFDB" stroke-width="2"></rect>
+          <path d="M39 22.5h22" stroke="#F9D6DF" stroke-width="2.4" stroke-linecap="round"></path>
+        </g>
+      </g></g>
+    </svg>`;
+  }
   miniTile(t, sp, size) {
     return html`<span style="position:relative;display:inline-block;width:${size}px;height:${size}px;flex:none" aria-hidden="true"><span class=${'mt-in mt-' + t + (sp ? ' sp-' + sp : '')} style="inset:2px"><img src=${tileSrc(t)} alt="" /></span></span>`;
   }
   renderGame(v) {
     const { L, s } = v; const G = s.game;
     if (!G) return null;
-    const S = Math.floor(Math.min(this.width - 24, 460) / M.N);
+    const S = Math.floor(Math.min(this.width - 42, 440) / M.N);
     const W = S * M.N;
     const hint = new Set(G.hint || []);
     const bad = new Set(G.bad || []);
@@ -956,77 +1007,86 @@ class App extends Component {
       if (!t) return null;
       const f = G.fall[t.id];
       const [, c] = M.rc(i);
-      const cls = 'mt-in mt-' + t.t + (G.sel === i ? ' sel' : '') + (hint.has(i) ? ' hint' : '') + (bad.has(i) ? ' bad' : '') + (t.sp ? ' sp-' + t.sp : '');
+      const cls = 'mt-in mt-' + t.t + (G.sel === i ? ' sel' : '') + (hint.has(i) ? ' hint' : '') + (bad.has(i) ? ' bad' : '') + (G.hop === t.id ? ' hop' : '') + (t.sp ? ' sp-' + t.sp : '');
       return html`<div key=${t.id} class="mt" style="width:${S}px;height:${S}px;${pos(i)}">
-        <div class=${f ? 'mt-b mfall' : 'mt-b'} style=${f ? `--fy:${-f * S}px;animation-delay:${(c * 0.018).toFixed(3)}s` : ''}>
+        <div class=${f ? 'mt-b mfall' : 'mt-b'} style=${f ? `--fy:${-f * S}px;animation-delay:${(c * 0.02).toFixed(3)}s` : ''}>
           <div class=${cls}><img src=${tileSrc(t.t)} alt="" draggable="false" /></div>
         </div>
       </div>`;
     });
     const pops = G.pops.map((p) => html`<div key=${'p' + p.id} class="mt mpop" style="width:${S}px;height:${S}px;${pos(p.i)}" aria-hidden="true">
       <div class=${'mt-in mt-' + p.t}><img src=${tileSrc(p.t)} alt="" /></div>
-      <span style="position:absolute;left:50%;top:50%;--pc:${TILE_COL[p.t][0]}">${[0, 1, 2, 3, 4, 5].map((k) => html`<span class="spark mspk" style="transform:rotate(${k * 60 + 20}deg)"><span></span></span>`)}</span>
+      <span style="position:absolute;left:50%;top:50%;--pc:${TILE_COL[p.t][0]}">${[0, 1, 2, 3, 4, 5, 6, 7].map((k) => html`<span class="spark mspk" style="transform:rotate(${k * 45 + 10}deg)"><span></span></span>`)}</span>
     </div>`);
     const fx = G.fx.map((e, k) => e.kind === 'line'
       ? html`<div key=${'x' + G.fxN + '-' + k} class=${'mline mline-' + e.dir} style=${e.dir === 'h' ? `top:${e.at * S}px;height:${S}px` : `left:${e.at * S}px;width:${S}px`} aria-hidden="true"></div>`
       : html`<div key=${'g' + G.fxN + '-' + k} class="mgold" aria-hidden="true"></div>`);
-    const floats = G.floats.map((f) => html`<span key=${f.k} class="mfloat" style="left:${f.c * S + S / 2}px;top:${f.r * S + S / 2}px" aria-hidden="true">${f.text}</span>`);
+    const floats = G.floats.map((f) => html`<span key=${f.k} class="mfloat" style="left:${f.c * S + S / 2}px;top:${f.r * S + S / 2}px;--fc:${f.t && TILE_COL[f.t] ? TILE_COL[f.t][0] : INK}" aria-hidden="true">${f.text}</span>`);
     const readyBanner = s.orderId && s.status === 2 && !s.readySeen;
-    const pill = 'display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:18px;padding:6px 14px;min-width:92px';
-    return html`<div class="screen" style="display:flex;flex-direction:column;gap:14px;padding-top:6px">
+    const card = 'position:absolute;inset:0;z-index:8;border-radius:18px;background:rgba(255,253,248,.96);display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:8px;text-align:center;padding:14px 14px 16px;overflow-y:auto';
+    return html`<div class="screen" style="display:flex;flex-direction:column;gap:12px;padding-top:2px">
       ${s.notice && this.noticeBox(v)}
       ${readyBanner && html`<div class="screen" style="background:#FFE9A8;color:${INK};padding:14px;border-radius:16px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(27,34,56,.25)">
           <span class="serif" style="flex:1;font-size:20px;line-height:1.25">${L.g.readyBanner}</span>
           <button class="press label" onClick=${v.snd('tap', () => this.setState({ screen: 'wait', readySeen: true }))} style="height:48px;padding:0 14px;border:0;border-radius:999px;background:${INK};color:#F6F1E7;font-size:12px">${L.g.readyBtn}</button>
         </div>`}
-      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px">
-        <span class="serif" style="font-size:34px;font-style:italic;line-height:1.05">${L.g.title}</span>
-        <span class="label" style="font-size:12px;color:${GOLD}">${L.g.best} · ${this.best.toLocaleString()}</span>
-      </div>
-      <div style="display:flex;justify-content:center;gap:10px">
-        <div class=${low && G.phase === 'play' ? 'pulse-soft' : ''} style="${pill};background:${low ? '#F9D6DF' : '#FFFFFF'};box-shadow:0 0 0 1px rgba(27,34,56,.12)" role="status" aria-label=${L.g.movesAria(G.moves)}>
-          <span class="serif" style="font-size:32px;line-height:1">${G.moves}</span>
-          <span class="label" style="font-size:11px;color:#5B6075">${L.g.moves}</span>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px">
+        <div style="display:flex;flex-direction:column;line-height:1.05">
+          <span class="serif" style="font-size:30px;font-style:italic">${L.g.title}</span>
+          <span class="label" style="font-size:11px;color:${GOLD};margin-top:5px">${L.g.best} · ${this.best.toLocaleString()}</span>
         </div>
-        <div style="${pill};background:${INK};color:#F6F1E7;min-width:130px" aria-live="polite">
-          <span class="serif" style="font-size:32px;line-height:1">${G.score.toLocaleString()}</span>
-          <span class="label" style="font-size:11px;color:#E8D49A">${L.g.score}</span>
+        <div class="mticket" role="status" aria-label=${L.g.movesAria(G.moves)}>
+          <span style="display:flex;flex-direction:column;align-items:center;min-width:48px">
+            <span class=${'serif ' + (low && G.phase === 'play' ? 'pulse-soft' : '')} style="font-size:30px;line-height:1;color:${low ? '#C2416B' : INK}">${G.moves}</span>
+            <span class="label" style="font-size:10px;color:#5B6075;margin-top:3px">${L.g.moves}</span>
+          </span>
+          <span class="sep" aria-hidden="true"></span>
+          <span style="display:flex;flex-direction:column;align-items:center;min-width:70px" aria-live="polite">
+            <span class="serif" style="font-size:30px;line-height:1">${G.score.toLocaleString()}</span>
+            <span class="label" style="font-size:10px;color:#5B6075;margin-top:3px">${L.g.score}</span>
+          </span>
         </div>
       </div>
-      <div style="position:relative;margin:0 -10px">
+      <div style="display:flex;align-items:center;gap:12px;min-height:64px;margin-top:4px">
+        ${this.mascot(G.mood || 'idle', G.moodN || 0, 64)}
+        ${G.say && html`<span key=${'b' + G.moodN} class="mbub">${G.say}</span>`}
+      </div>
+      <div class="mtray" style="width:${W + 18}px">
         <div ref=${(el) => { this.boardEl = el; }} class="mboard" role="application" aria-label=${L.g.title}
           onPointerDown=${(e) => this.onBoardDown(e)} onPointerMove=${(e) => this.onBoardMove(e)} onPointerUp=${() => this.onBoardUp()} onPointerCancel=${() => { this.gp = null; }}
-          style="width:${W}px;height:${W}px;background-size:${S * 2}px ${S * 2}px">
+          style="width:${W}px;height:${W}px;background-size:${S}px ${S}px">
           ${tiles}${pops}${fx}${floats}
           ${G.wordN > 0 && G.word && html`<span key=${'w' + G.wordN} class="mword" aria-hidden="true">${G.word}</span>`}
-          ${G.phase === 'intro' && html`<div class="screen" style="position:absolute;inset:0;z-index:8;border-radius:18px;background:rgba(255,251,242,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;text-align:center">
-            <span style="font-size:19px;line-height:1.45;max-width:300px">${L.g.intro}</span>
-            <div style="display:flex;flex-direction:column;gap:8px;text-align:left;width:100%;max-width:300px">
-              <div style="display:flex;align-items:center;gap:10px">${this.miniTile('cheese', null, 34)}${this.miniTile('cheese', null, 34)}${this.miniTile('cheese', null, 34)}<span style="font-size:16px;line-height:1.3">${L.g.leg3}</span></div>
-              <div style="display:flex;align-items:center;gap:10px">${this.miniTile('avocado', 'h', 40)}<span style="font-size:16px;line-height:1.3">${L.g.leg4}</span></div>
-              <div style="display:flex;align-items:center;gap:10px">${this.miniTile('gold', 'gold', 40)}<span style="font-size:16px;line-height:1.3">${L.g.leg5}</span></div>
+          ${G.phase === 'intro' && html`<div class="screen mcard" style=${card}>
+            <div style="display:flex;align-items:center;gap:10px">${this.mascot('happy', 1, 60)}<span class="mbub" style="text-align:left">${L.g.hi}</span></div>
+            <span style="font-size:16px;line-height:1.4;max-width:300px">${L.g.intro}</span>
+            <div style="display:flex;flex-direction:column;gap:6px;text-align:left;width:100%;max-width:310px">
+              <div style="display:flex;align-items:center;gap:6px">${this.miniTile('cheese', null, 30)}${this.miniTile('cheese', null, 30)}${this.miniTile('cheese', null, 30)}<span style="font-size:14px;line-height:1.3;margin-left:4px">${L.g.leg3}</span></div>
+              <div style="display:flex;align-items:center;gap:10px">${this.miniTile('avocado', 'h', 36)}<span style="font-size:14px;line-height:1.3">${L.g.leg4}</span></div>
+              <div style="display:flex;align-items:center;gap:10px">${this.miniTile('gold', 'gold', 36)}<span style="font-size:14px;line-height:1.3">${L.g.leg5}</span></div>
             </div>
-            <button class="press label" onClick=${() => this.beginPlay()} style="margin-top:6px;height:60px;padding:0 34px;border:0;border-radius:999px;background:${INK};color:#F6F1E7;font-size:15px">${L.g.start}</button>
+            <button class="press label" onClick=${() => this.beginPlay()} style="margin-top:4px;height:60px;padding:0 36px;border:0;border-radius:999px;background:#C2416B;color:#FFFFFF;font-size:15px;box-shadow:0 4px 0 #8E2C4C">${L.g.start}</button>
           </div>`}
-          ${G.phase === 'over' && html`<div class="screen" style="position:absolute;inset:0;z-index:8;border-radius:18px;background:rgba(255,251,242,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;overflow-y:auto">
+          ${G.phase === 'over' && html`<div class="screen mcard" style=${card}>
+            ${this.mascot('cheer', G.moodN || 1, 60)}
             ${G.newBest && html`<span class="label" style="font-size:12px;color:${INK};background:#FFE9A8;padding:6px 12px;border-radius:999px">${L.g.newBest}</span>`}
-            <span class="serif" style="font-size:28px;font-style:italic">${L.g.over}</span>
-            <span class="serif" style="font-size:64px;line-height:1;color:${GOLD}">${G.score.toLocaleString()}</span>
-            <span style="font-size:17px;color:#4A5570">${L.g.overSub(G.score)}</span>
+            <span class="serif" style="font-size:26px;font-style:italic">${L.g.over}</span>
+            <span class="serif" style="font-size:50px;line-height:1;color:#C2416B">${G.score.toLocaleString()}</span>
+            <span style="font-size:16px;color:#4A5570">${L.g.overSub(G.score)}</span>
             ${G.score > 0 && (s.scoreSent ? html`<span style="font-size:17px;color:#2E7D4F;display:flex;align-items:center;gap:8px">${check(18, 2.2)} ${L.g.onBoard}</span>`
               : html`<div style="width:100%;display:flex;gap:8px;margin-top:2px">
-                <input type="text" maxlength="40" value=${s.scoreName} onInput=${(e) => this.setState({ scoreName: e.target.value })} placeholder=${L.g.namePh} aria-label=${L.g.namePh} style="flex:1;min-width:0;height:50px;border:1px solid rgba(27,34,56,.3);border-radius:12px;background:#FFFFFF;color:${INK};padding:0 12px;font-size:18px;font-family:inherit" />
+                <input type="text" maxlength="40" value=${s.scoreName} onInput=${(e) => this.setState({ scoreName: e.target.value })} placeholder=${L.g.namePh} aria-label=${L.g.namePh} style="flex:1;min-width:0;height:50px;border:1.5px solid rgba(27,34,56,.3);border-radius:12px;background:#FFFFFF;color:${INK};padding:0 12px;font-size:18px;font-family:inherit" />
                 <button class="press label" onClick=${() => { this.play('tap'); this.submitScore(); }} disabled=${!s.scoreName.trim() || s.scoreBusy} style="height:50px;padding:0 12px;border:0;border-radius:12px;background:${INK};color:#F6F1E7;font-size:12px">${L.g.submit}</button>
               </div>`)}
-            <button class="press label" onClick=${v.snd('tap', () => this.setState({ game: { ...this.newGame(), phase: 'play' }, scoreSent: false }, () => this.armHint()))} style="margin-top:4px;width:100%;height:56px;border:0;border-radius:999px;background:${INK};color:#F6F1E7;font-size:15px">${L.g.again}</button>
+            <button class="press label" onClick=${v.snd('tap', () => this.setState({ game: { ...this.newGame(), phase: 'play', say: L.g.hi, mood: 'happy', moodN: 1 }, scoreSent: false }, () => { this.armHint(); this.startHop(); }))} style="margin-top:4px;width:100%;height:56px;border:0;border-radius:999px;background:#C2416B;color:#FFFFFF;font-size:15px;box-shadow:0 4px 0 #8E2C4C">${L.g.again}</button>
             <div style="width:100%;display:flex;gap:8px">
-              ${G.score > 0 && html`<button class="press" onClick=${() => this.shareCard()} style="flex:1;height:48px;border:1px solid rgba(27,34,56,.3);border-radius:999px;background:transparent;color:${INK};font-size:16px">${L.g.share}</button>`}
-              <button class="press" onClick=${v.back} style="flex:1;height:48px;border:1px solid rgba(27,34,56,.3);border-radius:999px;background:transparent;color:${INK};font-size:16px">${L.back}</button>
+              ${G.score > 0 && html`<button class="press" onClick=${() => this.shareCard()} style="flex:1;height:48px;border:1.5px solid rgba(27,34,56,.3);border-radius:999px;background:#FFFFFF;color:${INK};font-size:16px">${L.g.share}</button>`}
+              <button class="press" onClick=${v.back} style="flex:1;height:48px;border:1.5px solid rgba(27,34,56,.3);border-radius:999px;background:#FFFFFF;color:${INK};font-size:16px">${L.back}</button>
             </div>
           </div>`}
         </div>
       </div>
-      ${G.phase === 'play' && html`<span style="text-align:center;font-size:16px;color:#5B6075;font-style:italic">${L.g.howTo}</span>`}
+      ${G.phase === 'play' && html`<span style="text-align:center;font-size:16px;color:#5B6075;font-style:italic;margin-top:4px">${L.g.howTo}</span>`}
     </div>`;
   }
 
@@ -1047,7 +1107,7 @@ class App extends Component {
     const ctaBg = v.ctaDisabled ? '#D8D6D0' : (v.dark ? '#F6F1E7' : INK);
     const ctaFg = v.ctaDisabled ? '#5B6075' : (v.dark ? '#121828' : '#F6F1E7');
     return html`<div class=${'lang-' + s.lang} lang=${s.lang} style="position:relative;max-width:480px;margin:0 auto;min-height:100dvh;color:${INK}">
-      ${sc === 'game' && html`<div class="fade" style="position:fixed;inset:0;background:radial-gradient(circle at 12% 18%, rgba(217,230,241,.9), rgba(217,230,241,0) 38%), radial-gradient(circle at 88% 30%, rgba(255,233,168,.75), rgba(255,233,168,0) 36%), radial-gradient(circle at 30% 92%, rgba(249,214,223,.8), rgba(249,214,223,0) 40%);pointer-events:none" aria-hidden="true"></div>`}
+      ${sc === 'game' && html`<div class="mbg fade" aria-hidden="true"></div>`}
       ${sc === 'wait' && html`<div class="fade" style="position:fixed;inset:0;background:radial-gradient(ellipse 70% 30% at 50% 26%, rgba(241,226,179,.2) 0%, rgba(18,24,40,0) 70%);pointer-events:none" aria-hidden="true"></div>`}
       <div style="position:relative;padding:0 22px ${v.showCta ? 150 : 40}px">
         <div style="zoom:${s.big && sc !== 'game' ? 1.15 : 1}">
