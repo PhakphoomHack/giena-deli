@@ -266,7 +266,7 @@ class App extends Component {
           </svg>
         </div>
         <span class="label rp-in" style="--d:1.45s;font-size:13px;color:#E8D49A">${L.readyKick}</span>
-        <h2 id="rp-title" class="serif rp-in" style="--d:1.6s;margin:10px 0 0;font-weight:500;font-size:34px;line-height:1.2">${L.readyTitle(v.who)}</h2>
+        <h2 id="rp-title" class="serif rp-in" style="--d:1.6s;margin:10px 0 0;font-weight:500;font-size:34px;line-height:1.2">${v.nm ? L.readyTitle(v.nm) : L.readyTitleAnon}</h2>
         <p class="rp-in" style="--d:1.75s;margin:12px 0 0;font-size:19px;line-height:1.5;color:rgba(246,241,231,.85);max-width:320px">${L.readySub}</p>
         <button class="press label rp-in rp-btn" onClick=${() => this.readyGo()} style="--d:1.95s">${L.readyGo}</button>
         <button class="rp-in" onClick=${v.snd('tap', () => this.setState({ readyPop: false }))} style="--d:2.1s;margin-top:8px;height:46px;padding:0 14px;border:0;background:transparent;color:rgba(246,241,231,.75);font-size:17px;text-decoration:underline;text-underline-offset:4px">${L.readyLater}</button>
