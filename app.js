@@ -58,7 +58,7 @@ class App extends Component {
     return {
       screen: 'home', toasted: true, toast: 1, fill: {}, portion: {}, sauces: {}, saucy: 1, pickle: false,
       name: '', note: '', status: 0, drag: 0, dragging: false, wish: '', wishSent: !!k.wishSent, wishBusy: false,
-      stars: 0, tags: {}, comment: '', rateBusy: false, game: null, gameFrom: 'home', readySeen: false,
+      stars: 0, tags: {}, comment: '', rateBusy: false, game: null, gameFrom: 'home', readySeen: false, readyPop: false, readyN: 0,
       confettiN: k.confettiN || 0, orderId: null, sending: false, error: '', scoreName: k.name || '', scoreSent: false, scoreBusy: false,
       notice: false, music: !!k.music, lang: k.lang || 'en', big: !!k.big, sound: k.sound === undefined ? true : k.sound
     };
@@ -134,6 +134,8 @@ class App extends Component {
     if (name === 'plip') { this.tone(880, 1240, 0.08, 'sine', 0.04); this.tone(1240, 1400, 0.06, 'sine', 0.025, 0.06); }
     if (name === 'chime') [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, f, 0.6, 'sine', 0.045, i * 0.11));
     if (name === 'ready') [783.99, 987.77, 1174.66].forEach((f, i) => this.tone(f, f, 0.9, 'sine', 0.05, i * 0.14));
+    if (name === 'bell') [0, 0.36].forEach((d) => { this.tone(1567.98, 1567.98, 1.4, 'sine', 0.075, d); this.tone(3763, 3763, 0.7, 'sine', 0.018, d); this.tone(6115, 6115, 0.35, 'sine', 0.007, d); });
+    if (name === 'reveal') { this.noise(0.5, 0.05, 2600, 0.7); [1046.5, 1318.5, 1568, 2093].forEach((f, i) => this.tone(f, f, 0.7, 'triangle', 0.03, 0.05 + i * 0.07)); this.tone(523.25, 523.25, 1.1, 'sine', 0.045, 0.32); this.tone(659.25, 659.25, 1.1, 'sine', 0.035, 0.32); this.tone(783.99, 783.99, 1.1, 'sine', 0.03, 0.32); }
     if (name === 'sparkle') { this.tone(1318.5, 1318.5, 0.18, 'triangle', 0.03, 0.05); this.tone(1760, 1760, 0.25, 'triangle', 0.025, 0.12); }
     if (name === 'miss') this.tone(320, 150, 0.3, 'sine', 0.05);
     if (name === 'over') [523.25, 440, 349.23].forEach((f, i) => this.tone(f, f, 0.45, 'sine', 0.045, i * 0.18));
@@ -225,7 +227,7 @@ class App extends Component {
         if (idx !== this.state.status) {
           const saved = store(ORDER_KEY);
           if (saved) store(ORDER_KEY, { ...saved, status: idx });
-          if (idx === 2) { this.play('ready'); this.buzz([120, 80, 120]); this.setState({ status: 2, confettiN: this.state.confettiN + 1 }); }
+          if (idx === 2) this.readyShow();
           else this.setState({ status: idx });
         }
         if (st === 'collected') clearInterval(this.poll);
@@ -233,6 +235,43 @@ class App extends Component {
     };
     check();
     this.poll = setInterval(check, 4000);
+  }
+  readyShow() {
+    this.setState({ status: 2, readyPop: true, readyN: this.state.readyN + 1 });
+    this.play('bell'); this.buzz([80, 60, 80]);
+    this.timers.push(setTimeout(() => { if (!this.state.readyPop) return; this.play('reveal'); this.buzz([30, 40, 160]); this.setState({ confettiN: this.state.confettiN + 1 }); }, 1300));
+  }
+  readyGo() {
+    this.play('tap');
+    this.setState({ readyPop: false, readySeen: true, screen: 'wait' });
+  }
+  renderReadyPop(v) {
+    const { L, s } = v;
+    const sparks = Array.from({ length: 12 }, (_, i) => html`<span class="rp-spk" style="transform:rotate(${i * 30}deg);--c:${['#FFE9A8', '#F9D6DF', '#D9E6F1', '#FFFFFF'][i % 4]};--len:${i % 2 ? 108 : 132}px"><i></i></span>`);
+    return html`<div key=${'rp' + s.readyN} class="rp" role="alertdialog" aria-modal="true" aria-labelledby="rp-title">
+      <div class="rp-rays" aria-hidden="true"></div>
+      <div style="position:relative;width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;text-align:center;color:#F6F1E7">
+        <div class="rp-stage" aria-hidden="true">
+          <div class="rp-glow"></div>
+          <div class="rp-plate"></div>
+          <img class="rp-food" src="img/hero.webp" alt="" />
+          <div class="rp-steam"><span></span><span></span><span></span></div>
+          <div class="rp-burst">${sparks}</div>
+          <svg class="rp-cloche" viewBox="0 0 200 140" width="232" height="162">
+            <defs><linearGradient id="rpg" x1="0" x2="1"><stop offset="0" stop-color="#8E97AA"></stop><stop offset=".33" stop-color="#F6F8FB"></stop><stop offset=".62" stop-color="#C8CEDA"></stop><stop offset="1" stop-color="#7F889B"></stop></linearGradient></defs>
+            <circle cx="100" cy="21" r="10" fill="url(#rpg)" stroke="#5E667A" stroke-width="1.2"></circle>
+            <path d="M18 122C18 62 54 31 100 31s82 31 82 91z" fill="url(#rpg)" stroke="#5E667A" stroke-width="1.2"></path>
+            <path d="M42 94c6-26 24-42 48-47" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" opacity=".75" fill="none"></path>
+            <rect x="8" y="119" width="184" height="11" rx="5.5" fill="#B9C0CE" stroke="#5E667A" stroke-width="1.2"></rect>
+          </svg>
+        </div>
+        <span class="label rp-in" style="--d:1.45s;font-size:13px;color:#E8D49A">${L.readyKick}</span>
+        <h2 id="rp-title" class="serif rp-in" style="--d:1.6s;margin:10px 0 0;font-weight:500;font-size:34px;line-height:1.2">${L.readyTitle(v.who)}</h2>
+        <p class="rp-in" style="--d:1.75s;margin:12px 0 0;font-size:19px;line-height:1.5;color:rgba(246,241,231,.85);max-width:320px">${L.readySub}</p>
+        <button class="press label rp-in rp-btn" onClick=${() => this.readyGo()} style="--d:1.95s">${L.readyGo}</button>
+        <button class="rp-in" onClick=${v.snd('tap', () => this.setState({ readyPop: false }))} style="--d:2.1s;margin-top:8px;height:46px;padding:0 14px;border:0;background:transparent;color:rgba(246,241,231,.75);font-size:17px;text-decoration:underline;text-underline-offset:4px">${L.readyLater}</button>
+      </div>
+    </div>`;
   }
   orderCancelled() {
     clearInterval(this.poll); this.clearTimers();
@@ -1060,6 +1099,7 @@ class App extends Component {
         ${v.hint && html`<span role="alert" style="font-size:16px;text-align:center;color:${s.error ? '#A8355C' : '#5B6075'};font-style:italic">${v.hint}</span>`}
         <button class="press label" onClick=${v.cta} disabled=${v.ctaDisabled} style="height:62px;border:0;border-radius:2px;background:${ctaBg};color:${ctaFg};font-size:16px">${v.ctaLabel}</button>
       </div>`}
+      ${s.readyPop && this.renderReadyPop(v)}
       ${this.renderConfetti()}
     </div>`;
   }

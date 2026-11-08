@@ -2,6 +2,7 @@
 // Kitchen tickets are always built from the English strings: keep toastPh, portion, saucy, fills, sauces, noFill, noSauce stable.
 export const DICT = {
       en: {
+        readyKick: 'Ding ding!', readyTitle: (n) => n + ', your sandwich is ready!', readySub: 'Hot off the pass. Come grab it at the counter.', readyGo: 'On my way!', readyLater: 'In a sec',
         sendError: 'Oops, that didn’t go through. Check your Wi‑Fi and try again.', sending: 'Sending…', musicAria: 'Background music', soundOn: 'Sound on', soundOff: 'Sound off',
         back: 'Back', overline: 'A birthday menu for Giena', h1a: 'A sandwich,', h1b: 'just how you like it',
         homeSub: 'Pick your bread, your fillings and your sauce. We make every one fresh, right here.',
@@ -39,6 +40,7 @@ export const DICT = {
         g: { title: 'Sandwich Match', onBoard: 'You made the Top Chef board!', namePh: 'Your name for the board', submit: 'Add me', share: 'Share', shareLine1: (n) => 'I scored ' + n.toLocaleString('en') + ' points!', shareLine2: 'at Giena’s 27th birthday', playCta: 'Play Sandwich Match', playSub: 'A little game while you wait', homeGame: 'Having the salmon? Send Giena a wish, then play a game', locked: 'Unlocks after your wish', intro: 'Swap two ingredients next to each other to make a line of three.', leg3: 'Three in a line: pop!', leg4: 'Four in a line: a glowing piece that wipes out a whole row', leg5: 'Five in a line: the Golden Sandwich. Swap it to clear every piece of that kind', start: 'Let’s go!', howTo: 'Tap one, then the one next to it. Or just swipe.', score: 'Points', moves: 'Moves', movesAria: (n) => n + ' moves left', best: 'Best', over: 'What a feast!', overSub: () => 'Your score', newBest: 'New personal best!', again: 'Play again', readyBanner: 'Your sandwich is ready!', readyBtn: 'Grab it', words: ['Yummy!', 'Delicious!', 'Scrumptious!', 'Chef’s kiss!'], specialWord: 'Ooh, shiny!', goldMade: 'Golden Sandwich!', goldWord: 'Feast!', shuffle: 'Fresh tray!' }
       },
       th: {
+        readyKick: 'ติ๊งๆ!', readyTitle: (n) => 'แซนด์วิชของ ' + n + ' เสร็จแล้ว!', readySub: 'ร้อนๆ พร้อมเสิร์ฟ มารับที่เคาน์เตอร์เลย', readyGo: 'ไปรับเลย!', readyLater: 'เดี๋ยวไป',
         sendError: 'อุ๊ย ส่งไม่ผ่าน ลองเช็กเน็ตแล้วกดใหม่อีกทีนะ', sending: 'กำลังส่ง…', musicAria: 'เพลงพื้นหลัง', soundOn: 'เปิดเสียง', soundOff: 'ปิดเสียง',
         back: 'กลับ', overline: 'เมนูวันเกิดของ Giena', h1a: 'แซนด์วิช', h1b: 'แบบที่ใช่สำหรับคุณ',
         homeSub: 'เลือกขนมปัง ไส้ ซอส ได้ตามใจเลย ทุกชิ้นทำสดๆ ตรงนี้',
@@ -76,6 +78,7 @@ export const DICT = {
         g: { title: 'Sandwich Match', onBoard: 'ติดกระดาน Top Chef แล้ว!', namePh: 'ชื่อที่จะขึ้นกระดาน', submit: 'ส่งคะแนน', share: 'แชร์', shareLine1: (n) => 'ทำได้ ' + n.toLocaleString('th') + ' คะแนน!', shareLine2: 'ในงานวันเกิด 27 ปีของ Giena', playCta: 'เล่น Sandwich Match', playSub: 'เกมสั้นๆ ไว้เล่นระหว่างรอ', homeGame: 'ได้เมนูแซลมอนใช่ไหม ส่งคำอวยพรให้ Giena แล้วมาเล่นเกมกัน', locked: 'ปลดล็อกหลังส่งคำอวยพร', intro: 'สลับวัตถุดิบที่อยู่ติดกัน ให้ได้แบบเดียวกันเรียง 3 ชิ้น', leg3: 'เรียง 3: ป๊อป!', leg4: 'เรียง 4: ได้ชิ้นเรืองแสง ระเบิดทั้งแถว', leg5: 'เรียง 5: ได้แซนด์วิชทองคำ สลับปุ๊บ ชิ้นแบบเดียวกันหายหมดกระดาน', start: 'ลุยเลย!', howTo: 'แตะชิ้นหนึ่ง แล้วแตะชิ้นข้างๆ หรือจะปัดก็ได้', score: 'คะแนน', moves: 'ตาที่เหลือ', movesAria: (n) => 'เหลือ ' + n + ' ตา', best: 'สถิติ', over: 'อิ่มอร่อยจุใจ!', overSub: () => 'คะแนนของคุณ', newBest: 'ทำสถิติใหม่!', again: 'เล่นอีกรอบ', readyBanner: 'แซนด์วิชของคุณเสร็จแล้ว!', readyBtn: 'ไปรับเลย', words: ['อร่อย!', 'แซ่บมาก!', 'ฟินสุดๆ!', 'เชฟขอซูฮก!'], specialWord: 'วิ้งๆ!', goldMade: 'แซนด์วิชทองคำ!', goldWord: 'จัดเต็ม!', shuffle: 'เสิร์ฟถาดใหม่!' }
       },
       de: {
+        readyKick: 'Kling kling!', readyTitle: (n) => n + ', dein Sandwich ist fertig!', readySub: 'Frisch aus der Küche. Hol’s dir an der Theke ab.', readyGo: 'Bin unterwegs!', readyLater: 'Gleich',
         sendError: 'Hoppla, das hat nicht geklappt. Check kurz dein WLAN und versuch’s nochmal.', sending: 'Wird gesendet…', musicAria: 'Hintergrundmusik', soundOn: 'Ton an', soundOff: 'Ton aus',
         back: 'Zurück', overline: 'Ein Geburtstagsmenü für Giena', h1a: 'Ein Sandwich,', h1b: 'ganz wie du’s magst',
         homeSub: 'Such dir Brot, Belag und Sauce aus. Jedes Sandwich machen wir frisch, direkt hier.',

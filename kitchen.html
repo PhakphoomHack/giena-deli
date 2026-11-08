@@ -27,6 +27,16 @@ button:focus-visible{outline:3px solid #8A6A2F;outline-offset:2px}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;padding:16px 20px 40px;align-items:start}
 .flash{animation:flash 1.2s ease 3}
 @keyframes flash{50%{background:#E8D49A}}
+.sent{position:fixed;left:50%;bottom:28px;z-index:30;display:flex;align-items:center;gap:14px;padding:14px 22px 14px 14px;background:#FFFFFF;border:2px solid #1B2238;border-radius:999px;box-shadow:0 14px 34px rgba(27,34,56,.25);transform:translateX(-50%);animation:sentIn .5s cubic-bezier(.2,1.5,.4,1) both,sentOut .45s ease-in 2.7s forwards}
+@keyframes sentIn{from{opacity:0;transform:translate(-50%,40px) scale(.8)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes sentOut{to{opacity:0;transform:translate(-50%,20px) scale(.95)}}
+.sent-ic{width:52px;height:52px;flex:none;border-radius:50%;background:#FFE9A8;display:flex;align-items:center;justify-content:center;animation:sentFly 1.1s cubic-bezier(.5,-.4,.6,1) .55s both}
+@keyframes sentFly{0%{transform:none}35%{transform:translate(-4px,4px) rotate(-8deg)}100%{transform:translate(0,0) rotate(0)}}
+.sent-ic svg{animation:sentPlane 1.1s cubic-bezier(.5,-.4,.6,1) .55s both}
+@keyframes sentPlane{0%{transform:none;opacity:1}60%{transform:translate(60px,-70px) rotate(12deg);opacity:0}61%{transform:translate(-30px,30px);opacity:0}100%{transform:none;opacity:1}}
+.sent-sp{position:absolute;left:40px;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:var(--c);opacity:0;animation:sentSp .8s ease-out .6s forwards;transform:rotate(var(--a)) translateY(0)}
+@keyframes sentSp{0%{opacity:1;transform:rotate(var(--a)) translateY(0)}100%{opacity:0;transform:rotate(var(--a)) translateY(-46px)}}
+@media (prefers-reduced-motion: reduce){.sent,.sent-ic,.sent-ic svg,.sent-sp{animation:none}}
 </style>
 </head>
 <body>
@@ -47,7 +57,7 @@ const LANG = { en: 'English', th: 'ภาษาไทย', de: 'Deutsch' };
 const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - new Date(t).getTime()) / 60000)); return m < 1 ? 'just now' : m === 1 ? '1 min ago' : m + ' min ago'; };
 
 class Kitchen extends Component {
-  constructor() { super(); this.state = { orders: [], loaded: false, denied: false, offline: false, alerts: false, stats: null, fresh: {}, confirmDel: null, manage: false, wishes: [], resetText: '', armOrders: false, resetMsg: '', resetBusy: false }; this.seen = null; }
+  constructor() { super(); this.state = { orders: [], loaded: false, denied: false, offline: false, alerts: false, stats: null, fresh: {}, confirmDel: null, sent: null, manage: false, wishes: [], resetText: '', armOrders: false, resetMsg: '', resetBusy: false }; this.seen = null; }
   componentDidMount() { this.load(); this.timer = setInterval(() => this.load(), 3000); this.clock = setInterval(() => this.forceUpdate(), 30000); }
   async load() {
     if (!KEY) { this.setState({ denied: true, loaded: true }); return; }
@@ -88,8 +98,19 @@ class Kitchen extends Component {
     try { if (navigator.wakeLock) this.lock = await navigator.wakeLock.request('screen'); } catch (e) {}
     this.setState({ alerts: true }, () => this.alert(0));
   }
+  ping() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    [[1567.98, 0], [2093, 0.12], [2637, 0.24]].forEach(([f, d]) => {
+      const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + d);
+      g.gain.exponentialRampToValueAtTime(0.12, t + d + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.6);
+      o.connect(g); g.connect(this.ctx.destination); o.start(t + d); o.stop(t + d + 0.7);
+    });
+  }
   async move(o, status) {
     const prev = o.status;
+    if (status === 'ready') { clearTimeout(this.sentT); this.setState({ sent: { name: o.name, k: Date.now() } }); this.ping(); this.sentT = setTimeout(() => this.setState({ sent: null }), 3200); }
     this.setState({ orders: this.state.orders.map((x) => (x.id === o.id ? { ...x, status, updated_at: new Date().toISOString() } : x)) });
     try { await rpc('kitchen_set_status', { p_key: KEY, p_id: o.id, p_status: status }); }
     catch (e) { this.setState({ orders: this.state.orders.map((x) => (x.id === o.id ? { ...x, status: prev } : x)), offline: true }); }
@@ -216,6 +237,11 @@ class Kitchen extends Component {
             : html`<span class="label" style="font-size:12px;color:#2E7D4F">● Alerts on</span>`}
         </div>
       </div>
+      ${st.sent && html`<div key=${st.sent.k} class="sent" role="status">
+        <span class="sent-ic" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1B2238" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L21 3l-6.5 18-3.2-7.3z"></path><path d="M11.3 13.7L21 3"></path></svg></span>
+        <span style="display:flex;flex-direction:column;gap:2px"><span class="serif" style="font-size:24px;line-height:1.1">Sent to ${st.sent.name}</span><span style="font-size:15px;color:#4A5570">Their phone just lit up with the good news.</span></span>
+        ${[0, 1, 2, 3, 4, 5].map((i) => html`<i class="sent-sp" style="--a:${i * 60}deg;--c:${['#F9D6DF', '#FFE9A8', '#D9E6F1'][i % 3]}"></i>`)}
+      </div>`}
       ${st.manage && this.manage()}
       ${st.offline && html`<div role="alert" style="background:#C2416B;color:#FFFFFF;padding:10px 20px;font-size:17px">Connection lost. Retrying…</div>`}
       ${!st.loaded ? html`<p style="padding:40px;text-align:center;font-size:18px">Loading orders…</p>` : html`<div class="cols">

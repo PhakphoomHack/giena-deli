@@ -128,6 +128,40 @@ input::placeholder,textarea::placeholder{color:#7A7F92;font-style:italic}
 @keyframes mfloat{0%{opacity:0;transform:translate(-50%,-30%) scale(.7)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-160%) scale(1)}}
 .mword{position:absolute;left:0;right:0;top:40%;z-index:7;pointer-events:none;text-align:center;font-family:'Bodoni Moda','Noto Serif Thai',serif;font-style:italic;font-weight:600;font-size:44px;color:#C2416B;text-shadow:0 3px 0 #FFFFFF,0 -2px 0 #FFFFFF,2px 0 0 #FFFFFF,-2px 0 0 #FFFFFF,0 0 20px rgba(255,255,255,.95);animation:mword 1.25s cubic-bezier(.2,1.3,.5,1) forwards}
 @keyframes mword{0%{opacity:0;transform:scale(.4) rotate(-6deg)}22%{opacity:1;transform:scale(1.1) rotate(-3deg)}75%{opacity:1;transform:scale(1) rotate(-3deg)}100%{opacity:0;transform:translateY(-30px) scale(1) rotate(-3deg)}}
+/* Ready reveal */
+.rp{position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;padding:24px 22px calc(24px + env(safe-area-inset-bottom));background:rgba(18,24,40,.88);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);overflow:hidden;animation:rpFade .35s ease-out both}
+@keyframes rpFade{from{opacity:0}to{opacity:1}}
+.rp-rays{position:absolute;left:50%;top:38%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(from 0deg,rgba(255,233,168,.16) 0 8deg,rgba(255,233,168,0) 8deg 20deg,rgba(249,214,223,.12) 20deg 28deg,rgba(249,214,223,0) 28deg 40deg);-webkit-mask:radial-gradient(circle,#000 0,rgba(0,0,0,.6) 18%,transparent 46%);mask:radial-gradient(circle,#000 0,rgba(0,0,0,.6) 18%,transparent 46%);opacity:0;animation:rpRaysIn .8s ease-out 1.3s forwards,rpSpin 40s linear 1.3s infinite}
+@keyframes rpRaysIn{to{opacity:1}}
+@keyframes rpSpin{to{transform:rotate(360deg)}}
+.rp-stage{position:relative;width:260px;height:236px;flex:none}
+.rp-glow{position:absolute;left:50%;top:52%;width:300px;height:300px;margin:-150px 0 0 -150px;border-radius:50%;background:radial-gradient(circle,rgba(255,233,168,.55),rgba(255,233,168,0) 62%);opacity:0;transform:scale(.4);animation:rpGlow .9s cubic-bezier(.2,1.3,.5,1) 1.3s forwards,rpGlowPulse 2.4s ease-in-out 2.2s infinite}
+@keyframes rpGlow{to{opacity:1;transform:scale(1)}}
+@keyframes rpGlowPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.rp-plate{position:absolute;left:50%;bottom:22px;width:244px;height:54px;margin-left:-122px;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,#FFFFFF 0,#FFFFFF 55%,#E6ECF4 56%,#FFFFFF 70%,#D9E2EE 100%);box-shadow:0 14px 26px rgba(0,0,0,.35)}
+.rp-food{position:absolute;left:50%;bottom:36px;width:212px;height:auto;margin-left:-106px;filter:drop-shadow(0 10px 12px rgba(0,0,0,.35));opacity:0;transform:scale(.55);transform-origin:50% 90%;animation:rpPop .7s cubic-bezier(.3,1.7,.5,1) 1.32s forwards,rpBob 3s ease-in-out 2.2s infinite}
+@keyframes rpPop{to{opacity:1;transform:scale(1)}}
+@keyframes rpBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.rp-cloche{position:absolute;left:50%;bottom:20px;margin-left:-116px;transform-origin:50% 100%;filter:drop-shadow(0 10px 14px rgba(0,0,0,.4));animation:rpDrop .6s cubic-bezier(.3,1.5,.5,1) 0s both,rpWiggle .5s ease-in-out .7s,rpLift .7s cubic-bezier(.5,-.35,.7,1) 1.22s forwards}
+@keyframes rpDrop{from{transform:translateY(-260px);opacity:0}60%{opacity:1}to{transform:translateY(0);opacity:1}}
+@keyframes rpWiggle{0%,100%{transform:translateY(0) rotate(0)}20%{transform:translateY(-6px) rotate(-5deg)}45%{transform:translateY(0) rotate(4deg)}70%{transform:translateY(-4px) rotate(-3deg)}}
+@keyframes rpLift{0%{transform:translateY(0) rotate(0);opacity:1}25%{transform:translateY(8px) rotate(0)}100%{transform:translateY(-280px) translateX(70px) rotate(24deg);opacity:0}}
+.rp-burst{position:absolute;left:50%;top:50%;width:0;height:0}
+.rp-spk{position:absolute;left:0;top:0;width:0;height:0}
+.rp-spk i{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);opacity:0;animation:rpSpark .9s cubic-bezier(.2,.8,.3,1) 1.3s forwards}
+.rp-spk:nth-child(odd) i{width:7px;height:7px;left:-3.5px;top:-3.5px;border-radius:1px;transform:rotate(45deg)}
+@keyframes rpSpark{0%{opacity:0;transform:translateY(0) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translateY(calc(var(--len) * -1)) scale(1)}}
+.rp-steam{position:absolute;left:50%;bottom:150px;width:90px;height:60px;margin-left:-45px}
+.rp-steam span{position:absolute;bottom:0;width:10px;height:42px;border-radius:50%;background:linear-gradient(rgba(255,255,255,0),rgba(255,255,255,.45));filter:blur(3px);opacity:0;animation:rpSteam 2.4s ease-in-out infinite}
+.rp-steam span:nth-child(1){left:12px;animation-delay:1.8s}
+.rp-steam span:nth-child(2){left:40px;animation-delay:2.3s}
+.rp-steam span:nth-child(3){left:68px;animation-delay:2.8s}
+@keyframes rpSteam{0%{opacity:0;transform:translateY(10px) scaleY(.6)}35%{opacity:.9}100%{opacity:0;transform:translateY(-34px) translateX(6px) scaleY(1.2)}}
+.rp-in{opacity:0;transform:translateY(14px);animation:rpIn .55s cubic-bezier(.2,1.2,.4,1) var(--d,0s) forwards}
+@keyframes rpIn{to{opacity:1;transform:none}}
+.rp-btn{margin-top:24px;width:100%;max-width:340px;height:62px;border:0;border-radius:999px;background:#FFE9A8;color:#121828;font-size:16px;box-shadow:0 0 0 0 rgba(255,233,168,.6);animation:rpIn .55s cubic-bezier(.2,1.2,.4,1) var(--d,0s) forwards,rpRing 1.8s ease-out 2.6s infinite}
+@keyframes rpRing{0%{box-shadow:0 0 0 0 rgba(255,233,168,.5),0 0 24px rgba(255,233,168,.35)}100%{box-shadow:0 0 0 10px rgba(255,233,168,0),0 0 24px rgba(255,233,168,.35)}}
+@media (prefers-reduced-motion: reduce){.rp-rays,.rp-glow,.rp-food,.rp-cloche,.rp-spk i,.rp-steam span,.rp-in,.rp-btn{animation:none!important}.rp-cloche{display:none}.rp-food,.rp-glow,.rp-in,.rp-rays{opacity:1;transform:none}}
 .pulse-soft{animation:psoft 1.2s ease-in-out infinite}
 @keyframes psoft{50%{transform:scale(1.06)}}
 @media (prefers-reduced-motion: reduce){.spin,.float,.bulb,.pulse,.mt-in.hint,.sp-h::after,.sp-v::after,.sp-x::after,.mt-gold,.pulse-soft{animation:none}}
