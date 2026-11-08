@@ -51,7 +51,8 @@ body{background:#121828;color:#F6F1E7;font-family:Jost,'Sarabun',system-ui,sans-
 <script type="module">
 import { h, render, Component } from './vendor/preact.js';
 import htm from './vendor/htm.js';
-import { rpc } from './config.js';
+import { rpc, store } from './config.js';
+import { Music } from './music.js';
 const html = htm.bind(h);
 const GOLD = '#E8D49A';
 const TINTS = ['#E8D49A', '#D9E6F1', '#EFD3D7', '#FFFFFF'];
@@ -62,10 +63,14 @@ const fit = (len) => (len <= 28 ? 'clamp(40px,6.2vw,132px)' : len <= 60 ? 'clamp
 class Board extends Component {
   constructor() {
     super();
-    this.state = { d: null, offline: false, conf: 0, feat: null, featNew: false, featN: 0, fsHint: true };
+    this.state = { d: null, offline: false, conf: 0, feat: null, featNew: false, featN: 0, fsHint: true, music: false, wantMusic: store('giena-tv-music') !== false };
+    this.music = new Music();
     this.leader = undefined; this.seen = null; this.queue = []; this.idx = 0; this.until = 0;
   }
   componentDidMount() {
+    const unlock = (e) => { if (e && e.target && e.target.closest && e.target.closest('[data-nounlock]')) return; if (this.state.wantMusic && !this.state.music && this.music.start()) this.setState({ music: true }); };
+    ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, unlock));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.music.resume(); });
     this.load(); this.t = setInterval(() => this.load(), 2000);
     this.k = setInterval(() => this.tick(), 500);
     this.hideFs = setTimeout(() => this.setState({ fsHint: false }), 8000);
@@ -73,6 +78,10 @@ class Board extends Component {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.wantLock) this.lock(); });
   }
   async lock() { try { if (navigator.wakeLock) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  toggleMusic() {
+    if (this.state.music) { this.music.stop(); store('giena-tv-music', false); this.setState({ music: false, wantMusic: false }); }
+    else { store('giena-tv-music', true); if (this.music.start()) this.setState({ music: true, wantMusic: true }); }
+  }
   async goFull() {
     this.wantLock = true; this.lock();
     try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); } catch (e) {}
@@ -90,6 +99,7 @@ class Board extends Component {
       else {
         const fresh = ws.filter((w) => !this.seen.has(key(w))).reverse();
         fresh.forEach((w) => { this.seen.add(key(w)); this.queue.push(w); });
+        if (fresh.length) this.music.sparkle();
         if (fresh.length && !this.state.featNew) this.until = 0;
       }
       this.setState({ d, offline: false, conf }, () => this.tick());
@@ -116,7 +126,7 @@ class Board extends Component {
     this.setState({ feat: w, featNew: false, featN: this.state.featN + 1 });
   }
   render() {
-    const { d, offline, conf, feat, featNew, featN, fsHint } = this.state;
+    const { d, offline, conf, feat, featNew, featN, fsHint, music, wantMusic } = this.state;
     const scores = d ? d.scores.slice(0, 5) : [];
     const wishes = d ? d.wishes : [];
     const others = feat ? wishes.filter((w) => key(w) !== key(feat)) : wishes;
@@ -141,7 +151,7 @@ class Board extends Component {
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right">
             <span class="label" style="font-size:clamp(11px,.9vw,16px);color:${GOLD}">Order · Wish · Play</span>
             <span style="font-size:clamp(13px,1vw,19px);color:rgba(246,241,231,.85);font-family:Sarabun,sans-serif">สแกนสั่งได้เลย · Scan & bestellen</span>
-            <span style="font-size:clamp(12px,.9vw,17px);color:rgba(246,241,231,.6)">giena-deli.vercel.app</span>
+            <span style="font-size:clamp(12px,.9vw,17px);color:rgba(246,241,231,.6)">giena.vercel.app</span>
           </div>
           <img src="qr/guest.svg" alt="QR code to order" onError=${(e) => { e.target.style.display = 'none'; }} style="width:clamp(80px,7vw,132px);height:auto;background:#FFFFFF;padding:7px" />
         </div>
@@ -189,7 +199,11 @@ class Board extends Component {
           </span>
         </div>`)}
       </footer>
-      <button class="fs" onClick=${() => this.goFull()} style="opacity:${fsHint ? 1 : 0}">Full screen</button>
+      <div style="position:fixed;right:18px;top:6px;z-index:20;display:flex;gap:8px;opacity:${fsHint || !music ? 1 : 0};transition:opacity .5s">
+        <button class="fs" data-nounlock style="position:static" onClick=${(e) => { e.stopPropagation(); this.toggleMusic(); }} aria-pressed=${music}>${music ? '♪ Music on' : '♪ Music off'}</button>
+        <button class="fs" style="position:static" onClick=${() => this.goFull()}>Full screen</button>
+      </div>
+      ${!music && wantMusic && html`<div class="newtag" style="position:fixed;left:50%;bottom:2.2vw;transform:translateX(-50%);z-index:19;padding:.8vw 1.6vw;background:${GOLD};color:#121828;font:500 clamp(14px,1.1vw,22px) Jost,sans-serif;letter-spacing:.08em;box-shadow:0 10px 30px rgba(0,0,0,.4)">♪ Click anywhere, or press OK on the remote, to start the birthday music</div>`}
       ${conf > 0 && html`<div key=${'c' + conf} aria-hidden="true">${Array.from({ length: 50 }, (_, i) => html`<span class="conf" style="left:${(i * 37) % 100}%;width:${8 + (i % 3) * 4}px;height:${14 + (i % 4) * 4}px;background:${TINTS[i % 4]};animation-delay:${((i * 7) % 10) / 8}s;animation-duration:${3 + ((i * 13) % 10) / 4}s"></span>`)}</div>`}
     </div>`;
   }
