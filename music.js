@@ -12,7 +12,7 @@ const LOOP_BEATS = 25 + 3;
 const VOICES = [{ oct: 1, bright: 1 }, { oct: 2, bright: 1.4 }, { oct: 1, bright: .7 }, { oct: .5, bright: .5 }];
 
 export class Music {
-  constructor() { this.ctx = null; this.on = false; this.n = 0; }
+  constructor(opts) { this.ctx = null; this.on = false; this.n = 0; this.sparkOnly = !!(opts && opts.sparkOnly); }
   start() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
@@ -25,8 +25,8 @@ export class Music {
     if (!this.on) {
       this.on = true;
       this.master.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.master.gain.setTargetAtTime(0.22, this.ctx.currentTime, 0.4);
-      if (!this.timer) { this.next = this.ctx.currentTime + 0.3; this.loop(); }
+      this.master.gain.setTargetAtTime(this.sparkOnly ? 0.6 : 0.22, this.ctx.currentTime, 0.4);
+      if (!this.timer && !this.sparkOnly) { this.next = this.ctx.currentTime + 0.3; this.loop(); }
     }
     return true;
   }

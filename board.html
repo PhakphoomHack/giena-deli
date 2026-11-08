@@ -42,6 +42,7 @@ body{background:#121828;color:#F6F1E7;font-family:Jost,'Sarabun',system-ui,sans-
 .conf{position:fixed;top:-24px;border-radius:2px;animation:conf linear forwards;z-index:9}
 @keyframes conf{to{transform:translateY(110vh) rotate(720deg)}}
 .fs{position:fixed;right:18px;top:6px;z-index:20;height:40px;padding:0 16px;border:1px solid rgba(246,241,231,.35);background:rgba(18,24,40,.7);color:#F6F1E7;font:500 14px Jost,sans-serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:opacity .5s}
+@keyframes pulseBtn{0%,100%{box-shadow:0 0 0 6px rgba(232,212,154,.35),0 12px 34px rgba(0,0,0,.45)}50%{box-shadow:0 0 0 16px rgba(232,212,154,.12),0 12px 34px rgba(0,0,0,.45)}}
 @media (prefers-reduced-motion: reduce){.track{animation:none}.feat,.newtag,.shimmer,.burst i{animation:none}}
 </style>
 </head>
@@ -64,13 +65,23 @@ class Board extends Component {
   constructor() {
     super();
     this.state = { d: null, offline: false, conf: 0, feat: null, featNew: false, featN: 0, fsHint: true, music: false, wantMusic: store('giena-tv-music') !== false };
-    this.music = new Music();
+    this.music = new Music({ sparkOnly: true });
+    this.audio = null;
     this.leader = undefined; this.seen = null; this.queue = []; this.idx = 0; this.until = 0;
   }
   componentDidMount() {
-    const unlock = (e) => { if (e && e.target && e.target.closest && e.target.closest('[data-nounlock]')) return; if (this.state.wantMusic && !this.state.music && this.music.start()) this.setState({ music: true }); };
-    ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, unlock));
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.music.resume(); });
+    const a = this.audio = new Audio('audio/hbd-1.mp3');
+    a.loop = true; a.preload = 'auto'; a.volume = 1; a.setAttribute('playsinline', '');
+    a.addEventListener('playing', () => this.setState({ music: true }));
+    a.addEventListener('pause', () => this.setState({ music: false }));
+    const unlock = (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-nounlock]')) return;
+      if (this.state.wantMusic && this.audio.paused) this.playMusic();
+    };
+    ['pointerdown', 'keydown', 'touchstart', 'click'].forEach((ev) => document.addEventListener(ev, unlock, true));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.state.wantMusic && this.audio.paused) this.playMusic(); });
+    if (this.state.wantMusic) this.playMusic();
+    setTimeout(() => { const b = document.getElementById('music-go'); if (b) b.focus(); }, 300);
     this.load(); this.t = setInterval(() => this.load(), 2000);
     this.k = setInterval(() => this.tick(), 500);
     this.hideFs = setTimeout(() => this.setState({ fsHint: false }), 8000);
@@ -78,9 +89,14 @@ class Board extends Component {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.wantLock) this.lock(); });
   }
   async lock() { try { if (navigator.wakeLock) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  playMusic() {
+    try { this.music.start(); } catch (e) {}
+    const p = this.audio.play();
+    if (p && p.catch) p.catch(() => this.setState({ music: false }));
+  }
   toggleMusic() {
-    if (this.state.music) { this.music.stop(); store('giena-tv-music', false); this.setState({ music: false, wantMusic: false }); }
-    else { store('giena-tv-music', true); if (this.music.start()) this.setState({ music: true, wantMusic: true }); }
+    if (!this.audio.paused) { this.audio.pause(); store('giena-tv-music', false); this.setState({ wantMusic: false }); }
+    else { store('giena-tv-music', true); this.setState({ wantMusic: true }); this.playMusic(); }
   }
   async goFull() {
     this.wantLock = true; this.lock();
@@ -203,7 +219,9 @@ class Board extends Component {
         <button class="fs" data-nounlock style="position:static" onClick=${(e) => { e.stopPropagation(); this.toggleMusic(); }} aria-pressed=${music}>${music ? '♪ Music on' : '♪ Music off'}</button>
         <button class="fs" style="position:static" onClick=${() => this.goFull()}>Full screen</button>
       </div>
-      ${!music && wantMusic && html`<div class="newtag" style="position:fixed;left:50%;bottom:2.2vw;transform:translateX(-50%);z-index:19;padding:.8vw 1.6vw;background:${GOLD};color:#121828;font:500 clamp(14px,1.1vw,22px) Jost,sans-serif;letter-spacing:.08em;box-shadow:0 10px 30px rgba(0,0,0,.4)">♪ Click anywhere, or press OK on the remote, to start the birthday music</div>`}
+      ${!music && wantMusic && html`<button id="music-go" class="newtag" onClick=${() => this.playMusic()} style="position:fixed;left:50%;bottom:2.4vw;transform:translateX(-50%);z-index:19;display:flex;align-items:center;gap:1vw;padding:1.1vw 2.2vw;border:0;background:${GOLD};color:#121828;font:500 clamp(18px,1.6vw,32px) Jost,Sarabun,sans-serif;letter-spacing:.04em;box-shadow:0 0 0 6px rgba(232,212,154,.35),0 12px 34px rgba(0,0,0,.45);cursor:pointer;animation:newtag 1.2s cubic-bezier(.3,1.6,.5,1) both, pulseBtn 1.6s ease-in-out 1.2s infinite">
+        <span style="font-size:1.4em;line-height:1">▶</span><span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.25"><span>กดเพื่อเปิดเพลง Happy Birthday</span><span style="font-size:.72em;opacity:.8">Click, or press OK on the remote, to play the music</span></span>
+      </button>`}
       ${conf > 0 && html`<div key=${'c' + conf} aria-hidden="true">${Array.from({ length: 50 }, (_, i) => html`<span class="conf" style="left:${(i * 37) % 100}%;width:${8 + (i % 3) * 4}px;height:${14 + (i % 4) * 4}px;background:${TINTS[i % 4]};animation-delay:${((i * 7) % 10) / 8}s;animation-duration:${3 + ((i * 13) % 10) / 4}s"></span>`)}</div>`}
     </div>`;
   }
