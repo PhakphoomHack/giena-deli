@@ -23,10 +23,11 @@ const FILLS = [
 const SAUCES = [
   { id: 'mustard', img: 'img/mustard_bowl.webp' },
   { id: 'garlic', img: 'img/garlic_bowl.webp' },
-  { id: 'thousand', img: 'img/thousand_bowl.webp' }
+  { id: 'thousand', img: 'img/thousand_bowl.webp' },
+  { id: 'pesto', img: 'img/pesto_bowl.webp' }
 ];
 const ROT = [[0], [-4, 5], [-6, 3, 8]];
-const TILE_COL = { brisket: ['#F28BA8', '#F7C4D1'], avocado: ['#7CCB86', '#BFE5C2'], onion: ['#F6A86B', '#F9C9A6'], cheese: ['#F2BE3A', '#FFE08A'], pickle: ['#A98BE0', '#D3C8F2'], toast: ['#8DB6E0', '#C7DAEE'], gold: ['#E9B92C', '#F6D46A'] };
+const TILE_COL = { brisket: ['#F28BA8', '#F7C4D1'], avocado: ['#7CCB86', '#BFE5C2'], onion: ['#F6A86B', '#F9C9A6'], cheese: ['#F2BE3A', '#FFE08A'], pickle: ['#A98BE0', '#D3C8F2'], toast: ['#8DB6E0', '#C7DAEE'], pesto: ['#6E9440', '#E9ECE4'], gold: ['#E9B92C', '#F6D46A'] };
 const STATUS_IDX = { new: 0, making: 1, ready: 2, collected: 2 };
 
 const check = (size, sw) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=${sw} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>`;
@@ -299,16 +300,6 @@ class App extends Component {
     this.play('tap');
     this.setState({ screen: 'wish', error: '' });
   }
-  async sendRating() {
-    const s = this.state;
-    if (!s.stars || s.rateBusy) return;
-    this.setState({ rateBusy: true });
-    try {
-      await rpc('add_rating', { p_order: s.orderId, p_name: s.name.trim(), p_stars: s.stars, p_tags: Object.keys(s.tags).filter((k) => s.tags[k]).map(Number), p_comment: s.comment.trim() });
-      this.play('chime');
-      this.setState({ screen: 'thanks', rateBusy: false, error: '' });
-    } catch (e) { this.setState({ rateBusy: false, error: DICT[s.lang].sendError }); }
-  }
   newOrder() {
     this.play('tap');
     this.clearTimers(); clearInterval(this.poll);
@@ -339,7 +330,7 @@ class App extends Component {
     if (cfg.fill.cheese) add(1, 2, () => ({ w: 156, h: 150, cls: 'ph-cheese', rz: 16 }));
     if (cfg.fill.onion) add(pc('onion'), 2.8, (i) => ({ w: 214, h: 131, cls: 'ph-onion', rz: i * 25 }));
     if (cfg.fill.avocado) add(pc('avocado'), 3.2, (i) => ({ w: 214, h: 138, cls: 'ph-avocado', rz: i * 9 - 4 }));
-    const chosen = ['mustard', 'garlic', 'thousand'].filter((k) => cfg.sauces[k]);
+    const chosen = ['mustard', 'garlic', 'thousand', 'pesto'].filter((k) => cfg.sauces[k]);
     if (chosen.length) {
       const reps = [1, 1, 2][cfg.saucy];
       add(chosen.length * reps, 1.2, (i) => ({ w: [150, 182, 206][cfg.saucy], h: [94, 114, 128][cfg.saucy], cls: 'ph-' + chosen[i % chosen.length], rz: (i % chosen.length) * 50 - 25 + (i >= chosen.length ? 90 : 0) }));
@@ -622,13 +613,12 @@ class App extends Component {
     const ready = s.status === 2;
     const wt = L.waitT[s.status];
     const needName = s.screen === 'review' && nm === '';
-    const needStar = s.screen === 'rate' && s.stars === 0;
     const needWishName = s.screen === 'wish' && !s.orderId && !s.scoreName.trim();
     const needWish = s.screen === 'wish' && !s.wish.trim();
-    const busy = s.sending || s.rateBusy || s.wishBusy;
+    const busy = s.sending || s.wishBusy;
     const ctaMap = {
       home: go('bread'), bread: go('fill'), fill: go('sauce'), sauce: go('review'),
-      review: () => this.sendOrder(), wish: () => this.sendWish(), wait: go('rate'), rate: () => this.sendRating(), thanks: () => this.newOrder()
+      review: () => this.sendOrder(), wish: () => this.sendWish(), wait: go('thanks'), thanks: () => this.newOrder()
     };
     const ctaLabel = busy ? L.sending : L.cta[s.screen];
     const dark = s.screen === 'wait';
@@ -642,7 +632,7 @@ class App extends Component {
       toastTrack: track(s.toast), toastTicks: ticks(L.toastLv, s.toast, (i) => { this.play('crunch'); this.setState({ toast: i }); }),
       saucyTrack: track(s.saucy), saucyTicks: ticks(L.saucy, s.saucy, (i) => this.setState({ saucy: i })),
       showCta: !(s.screen === 'wait' && !ready) && s.screen !== 'game',
-      ctaDisabled: needName || needStar || needWish || needWishName || busy, hint: s.error || (needName ? L.needName : (needStar ? L.tapStar : (needWishName ? L.wishNeedName : ''))),
+      ctaDisabled: needName || needWish || needWishName || busy, hint: s.error || (needName ? L.needName : (needWishName ? L.wishNeedName : '')),
       ctaLabel, cta: ctaMap[s.screen],
       snd, go
     };
@@ -939,32 +929,11 @@ class App extends Component {
     </div>`;
   }
 
-  renderRate(v) {
-    const { L, s } = v;
-    return html`<div class="screen" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:18px">
-      <h2 class="serif" style="margin:0;font-weight:500;font-size:40px;line-height:1.15">${L.rateTitle}</h2>
-      <span style="font-size:19px;line-height:1.45;color:#5B6075;font-style:italic;margin-top:10px">${L.rateSub}</span>
-      <div role="group" aria-label=${L.rateTitle} style="display:flex;gap:4px;margin-top:30px">
-        ${[1, 2, 3, 4, 5].map((n) => html`<button class="press" onClick=${() => { this.play('pop', 360 + n * 70); this.setState({ stars: n, error: '' }); }} aria-pressed=${n <= s.stars} aria-label=${L.starAria(n)} style="width:60px;height:60px;border:0;background:transparent;padding:0;display:flex;align-items:center;justify-content:center">
-          <svg class=${'star ' + (n <= s.stars ? 'star-on' : '')} width="46" height="46" viewBox="0 0 24 24" aria-hidden="true"><path d=${STAR_PATH} fill=${n <= s.stars ? '#D9B25A' : 'transparent'} stroke=${INK} stroke-width="1.1" stroke-linejoin="round"></path></svg>
-        </button>`)}
-      </div>
-      <span class="serif" style="font-size:24px;font-style:italic;color:${GOLD};margin-top:10px;min-height:34px">${s.stars ? L.starWords[s.stars - 1] : ''}</span>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:22px">
-        ${L.rateChips.map((label, i) => { const on = !!s.tags[i]; return html`<button class="press" onClick=${v.snd('tick', () => this.setState({ tags: { ...s.tags, [i]: !on } }))} aria-pressed=${on} style="min-height:48px;padding:8px 16px;border:1px solid ${INK};border-radius:999px;background:${on ? INK : 'transparent'};color:${on ? '#F6F1E7' : INK};font-size:17px">${label}</button>`; })}
-      </div>
-      <textarea maxlength="500" value=${s.comment} onInput=${(e) => this.setState({ comment: e.target.value })} placeholder=${L.commentPh} rows="2" aria-label=${L.commentPh} style="margin-top:26px;border:0;border-bottom:1px solid ${INK};border-radius:0;background:transparent;padding:8px 2px;font-family:inherit;font-size:19px;line-height:1.5;color:${INK};width:100%;resize:none;text-align:left"></textarea>
-    </div>`;
-  }
-
   renderThanks(v) {
     const { L, s } = v;
     return html`<div class="screen" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:70px">
       ${CROWN}
       <h2 class="serif" style="margin:16px 0 0;font-weight:500;font-size:42px;line-height:1.15">${L.thanksT(v.who)}</h2>
-      <div style="display:flex;gap:4px;margin-top:18px" aria-hidden="true">
-        ${[1, 2, 3, 4, 5].map((n) => html`<svg width="26" height="26" viewBox="0 0 24 24"><path d=${STAR_PATH} fill=${n <= s.stars ? '#D9B25A' : 'transparent'} stroke=${INK} stroke-width="1.1" stroke-linejoin="round"></path></svg>`)}
-      </div>
       <p style="margin:18px 0 0;font-size:20px;line-height:1.5;color:#3F455A;max-width:300px">${L.thanksSub}</p>
       <button class="press" onClick=${() => this.openGame()} style="margin-top:30px;min-height:56px;padding:0 24px;border:1px solid ${INK};border-radius:2px;background:transparent;color:${INK};font-size:18px">${L.g.playCta}</button>
     </div>`;
@@ -1090,7 +1059,6 @@ class App extends Component {
           ${sc === 'review' && this.renderReview(v)}
           ${sc === 'wish' && this.renderWish(v)}
           ${sc === 'wait' && this.renderWait(v)}
-          ${sc === 'rate' && this.renderRate(v)}
           ${sc === 'thanks' && this.renderThanks(v)}
           ${sc === 'game' && this.renderGame(v)}
         </div>

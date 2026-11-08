@@ -1,7 +1,7 @@
 // Sandwich Match: pure board logic (no DOM). Board = flat array of N*N tiles.
 // Tile: { id, t: type, sp: null | 'h' | 'v' | 'x' | 'gold' }
 export const N = 7;
-export const TYPES = ['brisket', 'avocado', 'onion', 'cheese', 'pickle', 'toast'];
+export const TYPES = ['brisket', 'avocado', 'onion', 'cheese', 'pickle', 'toast', 'pesto'];
 let uid = 1;
 const rnd = (n) => Math.floor(Math.random() * n);
 export const mk = (t, sp) => ({ id: uid++, t, sp: sp || null });
